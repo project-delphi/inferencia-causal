@@ -207,6 +207,7 @@ function dagScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 0.1, 0);
+  controls.saveState(); // «Reiniciar» vuelve a este encuadre
   addLights(scene);
 
   const P = {
@@ -366,6 +367,7 @@ function propensityScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 1.3, 0);
+  controls.saveState(); // «Reiniciar» vuelve a este encuadre
   addLights(scene);
 
   const K = 1.6;   // escala de X a coordenadas del mundo
@@ -470,6 +472,7 @@ function bayesScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 1, 0);
+  controls.saveState(); // «Reiniciar» vuelve a este encuadre
   addLights(scene);
 
   // Datos: y = 1 + 2 T + e, sigma = 1, diseño balanceado
@@ -592,13 +595,28 @@ const FACTORIES = { hero: heroScene, dag: dagScene, propensity: propensityScene,
 const items = [];
 document.querySelectorAll('[data-three]').forEach((el) => {
   const f = FACTORIES[el.dataset.three];
-  if (f) items.push({ el, f, inst: null, w: 0, h: 0, pr: 0 });
+  if (f) items.push({ el, f, inst: null, failed: false, w: 0, h: 0, pr: 0 });
 });
 
+// En modo impresión/PDF (?print-pdf) ninguna diapositiva lleva la clase
+// `present`, así que se renderizan todas para que el PDF no salga en blanco.
+const isPrinting = () => document.documentElement.classList.contains('print-pdf') ||
+  !!window.Reveal?.isPrintingPDF?.();
 const isPresent = (el) => {
+  if (isPrinting()) return true;
   const s = el.closest('section');
   return !!s && s.classList.contains('present') && !s.classList.contains('stack');
 };
+
+function fail(it, err) {
+  console.error('[three]', err);
+  it.failed = true;
+  it.el.querySelectorAll('canvas, .overlay, .status, .hint').forEach((n) => n.remove());
+  const msg = document.createElement('div');
+  msg.className = 'three-error';
+  msg.textContent = 'No se pudo iniciar la escena 3D (WebGL no disponible o error de carga). Prueba a recargar la página.';
+  it.el.appendChild(msg);
+}
 
 const clock = new THREE.Clock();
 function loop() {
@@ -606,10 +624,9 @@ function loop() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
   for (const it of items) {
-    if (!isPresent(it.el)) continue;
+    if (it.failed || !isPresent(it.el)) continue;
     if (!it.inst) {
-      try { it.inst = it.f(it.el); } catch (err) { console.error('[three]', err); it.f = () => null; continue; }
-      if (!it.inst) continue;
+      try { it.inst = it.f(it.el); } catch (err) { fail(it, err); continue; }
     }
     const { renderer, camera, scene, controls } = it.inst;
     const w = it.el.clientWidth, h = it.el.clientHeight;
@@ -621,9 +638,15 @@ function loop() {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
-    it.inst.tick(t, dt);
-    controls?.update();
-    renderer.render(scene, camera);
+    try {
+      it.inst.tick(t, dt);
+      controls?.update();
+      renderer.render(scene, camera);
+    } catch (err) {
+      renderer.dispose();
+      it.inst = null;
+      fail(it, err);
+    }
   }
 }
 loop();

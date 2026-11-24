@@ -167,3 +167,8 @@ $presentation-h2-font-size: 1.45em;
 .reveal div[class^="plot"] { font-size: 14px; }
 .reveal .smaller .readout { font-size: 0.85em; }
 .reveal .smaller form { font-size: 0.95em; }
+
+.three-stage .three-error, .three-bg .three-error {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 2em; text-align: center; color: #e9eef8; font-size: 0.6em;
+}

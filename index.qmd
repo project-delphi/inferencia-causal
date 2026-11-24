@@ -223,7 +223,7 @@ selRes = {
 }
 Plot.plot({
   width: 640, height: 210, marginLeft: 150,
-  x: {domain: [-2, 3], label: "Valor", grid: true},
+  marginBottom: 44, x: {domain: [-2, 3], label: "Valor", grid: true, labelAnchor: "center", labelOffset: 36},
   y: {label: null, domain: selRes.map(d => d.termino)},
   marks: [
     Plot.barX(selRes, {y: "termino", x: "valor", fill: d => d.termino.startsWith("ATT") ? "#2e8b57" : d.termino.startsWith("Sesgo") ? "#c8742b" : "#14213d"}),
@@ -392,7 +392,7 @@ dsep = {
 }
 Plot.plot({
   width: 640, height: 330, grid: true,
-  x: {domain: [-4.5, 4.5], label: "A"}, y: {domain: [-5, 5], label: "C"},
+  marginBottom: 44, x: {domain: [-4.5, 4.5], label: "A", labelAnchor: "center", labelOffset: 36}, y: {domain: [-5, 5], label: "C"},
   marks: [
     Plot.dot(dsep, {x: "A", y: "C", r: 2, fill: condB ? "#b9c1d0" : "#14213d", fillOpacity: condB ? 0.4 : 0.5}),
     condB ? Plot.dot(dsep.filter(d => d.sel), {x: "A", y: "C", r: 3, fill: "#c8742b"}) : null,
@@ -488,7 +488,7 @@ g <- dagitty("dag {
   U [latent]
 }")
 adjustmentSets(g, exposure = "T", outcome = "Y")  # ningún conjunto: U bloquea la puerta trasera
-adjustmentSets(g, exposure = "M", outcome = "Y")  # { T, X } o { T }: puerta frontal, etapa 2
+adjustmentSets(g, exposure = "M", outcome = "Y")  # { T }: puerta frontal, etapa 2
 impliedConditionalIndependencies(g)               # implicaciones contrastables
 ```
 
@@ -543,8 +543,9 @@ $\hat\tau$ coincide con la pendiente de regresar $\tilde Y = Y - \hat Y(X)$ sobr
 - Se recomienda incluir interacciones $T \times X$ (estimador de imputación o g-computación).
 
 ```r
-ry <- resid(lm(Y ~ X1 + X2)); rt <- resid(lm(T ~ X1 + X2))
-coef(lm(ry ~ rt))[2] == coef(lm(Y ~ T + X1 + X2))["T"]   # FWL (salvo redondeo)
+ry <- resid(lm(Y ~ X1 + X2, d)); rt <- resid(lm(T ~ X1 + X2, d))
+all.equal(unname(coef(lm(ry ~ rt))[2]),                     # TRUE: FWL
+          unname(coef(lm(Y ~ T + X1 + X2, d))["T"]))
 fit <- lm(Y ~ T * (X1 + X2))                              # g-computación
 mean(predict(fit, transform(d, T = 1)) - predict(fit, transform(d, T = 0)))
 ```
@@ -657,7 +658,7 @@ viewof labBadE = Inputs.toggle({label: "ê(X) mal especificado (omite X₂)", va
 viewof labBadMu = Inputs.toggle({label: "μ̂(X) mal especificado (omite X₂)", value: false})
 ```
 
-[100 réplicas Monte Carlo. Verdad: $\tau = 2$. Modelo: $T \sim \text{Bern}(\text{expit}(\gamma(0.7X_1 + 0.9X_2)))$, $Y = 1 + 2T + X_1 + 1.5X_2 + \varepsilon$.]{.tiny}
+[60 réplicas Monte Carlo. Verdad: $\tau = 2$. Modelo: $T \sim \text{Bern}(\text{expit}(\gamma(0.7X_1 + 0.9X_2)))$, $Y = 1 + 2T + X_1 + 1.5X_2 + \varepsilon$.]{.tiny}
 
 ```{ojs}
 html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d.metodo}: sesgo <b>${d.sesgo.toFixed(2)}</b>, DE ${d.de.toFixed(2)}</div>`).join("")}
@@ -667,23 +668,25 @@ html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d
 ::: {.column width="60%"}
 ```{ojs}
 labRes = {
-  const rng = mulberry32(99), out = [];
-  for (let r = 0; r < 100; r++) {
-    const n = labN, X1 = [], X2 = [], T = [], Y = [];
+  const rng = mulberry32(99), n = labND, out = [];
+  const dot = (a, b) => { let t = 0; for (let k = 0; k < a.length; k++) t += a[k] * b[k]; return t; };
+  for (let r = 0; r < 60; r++) {
+    const T = new Float64Array(n), Y = new Float64Array(n), rowsE = [], rows1 = [], rows0 = [], rowsMu = [];
     for (let i = 0; i < n; i++) {
       const x1 = randn(rng), x2 = randn(rng);
-      const t = rng() < expit(labGamma * (0.7 * x1 + 0.9 * x2)) ? 1 : 0;
-      X1.push(x1); X2.push(x2); T.push(t); Y.push(1 + 2 * t + x1 + 1.5 * x2 + randn(rng));
+      const t = rng() < expit(labGammaD * (0.7 * x1 + 0.9 * x2)) ? 1 : 0;
+      T[i] = t; Y[i] = 1 + 2 * t + x1 + 1.5 * x2 + randn(rng);
+      // filas de diseño precalculadas una sola vez por réplica
+      rowsE.push(labBadE ? [1, x1] : [1, x1, x2]);
+      rows1.push(labBadMu ? [1, 1, x1] : [1, 1, x1, x2]);
+      rows0.push(labBadMu ? [1, 0, x1] : [1, 0, x1, x2]);
+      rowsMu.push(t ? rows1[i] : rows0[i]);
     }
-    const rowE = i => labBadE ? [1, X1[i]] : [1, X1[i], X2[i]];
-    const rowMu = (i, t) => labBadMu ? [1, t, X1[i]] : [1, t, X1[i], X2[i]];
-    const bE = logitFit(T.map((_, i) => rowE(i)), T);
-    const bMu = olsFit(T.map((t, i) => rowMu(i, t)), Y);
-    const dot = (a, b) => a.reduce((s, v, k) => s + v * b[k], 0);
+    const bE = logitFit(rowsE, T), bMu = olsFit(rowsMu, Y);
     let m1 = 0, m0 = 0, n1 = 0, sw1 = 0, sw0 = 0, sy1 = 0, sy0 = 0, aipw = 0;
     for (let i = 0; i < n; i++) {
-      const e = Math.min(0.995, Math.max(0.005, expit(dot(bE, rowE(i)))));
-      const mu1 = dot(bMu, rowMu(i, 1)), mu0 = dot(bMu, rowMu(i, 0));
+      const e = Math.min(0.995, Math.max(0.005, expit(dot(bE, rowsE[i]))));
+      const mu1 = dot(bMu, rows1[i]), mu0 = dot(bMu, rows0[i]);
       if (T[i]) { m1 += Y[i]; n1++; sw1 += 1 / e; sy1 += Y[i] / e; }
       else { m0 += Y[i]; sw0 += 1 / (1 - e); sy0 += Y[i] / (1 - e); }
       aipw += mu1 - mu0 + T[i] * (Y[i] - mu1) / e - (1 - T[i]) * (Y[i] - mu0) / (1 - e);
@@ -700,7 +703,7 @@ labTable = d3.groups(labRes, d => d.metodo).map(([metodo, v]) => ({
 }))
 Plot.plot({
   width: 700, height: 360, marginLeft: 100,
-  x: {domain: [0.5, 5.5], label: "Estimación del efecto (100 réplicas)", grid: true},
+  marginBottom: 44, x: {domain: [0.5, 5.5], label: "Estimación del efecto (60 réplicas)", grid: true, labelAnchor: "center", labelOffset: 36},
   y: {domain: ["Ingenuo", "Regresión", "IPW (Hajek)", "AIPW"], label: null},
   color: {domain: ["Ingenuo", "Regresión", "IPW (Hajek)", "AIPW"], range: ["#9aa3b5", "#14213d", "#c8742b", "#2e8b57"]},
   marks: [
@@ -828,9 +831,9 @@ rdFit = {
 }
 Plot.plot({
   width: 700, height: 340, grid: true,
-  x: {domain: [-1, 1], label: "Variable de asignación X (umbral c = 0)"}, y: {label: "Y"},
+  marginBottom: 44, x: {domain: [-1, 1], label: "Variable de asignación X (umbral c = 0)", labelAnchor: "center", labelOffset: 36}, y: {label: "Y"},
   marks: [
-    Plot.rectY([{x1: -rdH, x2: rdH}], {x1: "x1", x2: "x2", y1: -1, y2: 1.6, fill: "#c8742b", fillOpacity: 0.08}),
+    Plot.rect([{x1: -rdH, x2: rdH}], {x1: "x1", x2: "x2", fill: "#c8742b", fillOpacity: 0.08}),
     Plot.dot(rdData, {x: "x", y: "y", r: 2, fill: d => Math.abs(d.x) < rdH ? "#14213d" : "#c3c9d6"}),
     Plot.line([[-rdH, rdFit.L.a - rdFit.L.b * rdH], [0, rdFit.L.a]], {stroke: "#c8742b", strokeWidth: 3}),
     Plot.line([[0, rdFit.R.a], [rdH, rdFit.R.a + rdFit.R.b * rdH]], {stroke: "#c8742b", strokeWidth: 3}),
@@ -875,7 +878,7 @@ viewof rrObs = Inputs.range([1.05, 5], {value: 2, step: 0.05, label: "RR observa
   const curve = d3.range(rrObs + 0.02, 12, 0.02).map(u => ({u, v: rrObs * (u - 1) / (u - rrObs)})).filter(d => d.v <= 12);
   return Plot.plot({
     width: 560, height: 250, grid: true,
-    x: {domain: [1, 12], label: "RR confusor–resultado"}, y: {domain: [1, 12], label: "RR confusor–tratamiento"},
+    marginBottom: 44, x: {domain: [1, 12], label: "RR confusor–resultado", labelAnchor: "center", labelOffset: 36}, y: {domain: [1, 12], label: "RR confusor–tratamiento"},
     marks: [
       Plot.areaY(curve, {x: "u", y1: "v", y2: 12, fill: "#c8742b", fillOpacity: 0.15}),
       Plot.line(curve, {x: "u", y: "v", stroke: "#c8742b", strokeWidth: 2.5}),
@@ -928,7 +931,7 @@ ciRows = {
   return rows;
 }
 Plot.plot({
-  width: 700, height: 380, x: {domain: [1, 3], label: "τ", grid: true}, y: {axis: null},
+  width: 700, height: 380, marginBottom: 44, x: {domain: [1, 3], label: "τ", grid: true, labelAnchor: "center", labelOffset: 36}, y: {axis: null},
   color: {domain: [true, false], range: ["#14213d", "#d1495b"]},
   marks: [
     Plot.ruleX([2], {stroke: "#2e8b57", strokeWidth: 2}),
@@ -1085,12 +1088,13 @@ summary(fit);  cate <- fitted(fit, type = "icate")  # posterior de CATE(x_i)
 - Un estimador de IPW bayesiano usa el *bootstrap bayesiano* (Dirichlet) sobre pesos.
 
 ```r
-bb <- replicate(2000, {
-  g  <- rexp(n)                         # pesos Dirichlet(1, ..., 1) sin normalizar
-  a1 <- g * T / ps; a0 <- g * (1 - T) / (1 - ps)
-  sum(a1 * Y) / sum(a1) - sum(a0 * Y) / sum(a0)
+bb <- replicate(1000, {
+  g  <- rexp(nrow(d))                   # pesos Dirichlet(1, ..., 1) sin normalizar
+  e  <- fitted(glm(T ~ X1 + X2, quasibinomial, d, weights = g))  # reajustar ê(X)
+  a1 <- g * d$T / e; a0 <- g * (1 - d$T) / (1 - e)
+  sum(a1 * d$Y) / sum(a1) - sum(a0 * d$Y) / sum(a0)
 })
-quantile(bb, c(.025, .975))
+quantile(bb, c(.025, .975))             # incluye la incertidumbre de ê(X)
 ```
 
 ## Variables instrumentales y DiD bayesianos
@@ -1170,7 +1174,7 @@ html`<div class="readout">
   const post = dens(bpost.m, bpost.s);
   return Plot.plot({
     width: 760, height: 430, grid: true,
-    x: {label: "τ"}, y: {label: "densidad"},
+    marginBottom: 44, x: {label: "τ", labelAnchor: "center", labelOffset: 36}, y: {label: "densidad"},
     color: {domain: ["Prior", "Verosimilitud", "Posterior"], range: ["#6f8fcf", "#9aa3b5", "#c8742b"], legend: true},
     marks: [
       Plot.rectX([{a: -bdelta, b: bdelta}], {x1: "a", x2: "b", fill: "#2e8b57", fillOpacity: 0.12}),
@@ -1248,6 +1252,8 @@ El código en R de esta versión ([`code/inferencia_causal.R`](code/inferencia_c
 
 ```{ojs}
 //| output: false
+labGammaD = debounce(viewof labGamma)
+labND = debounce(viewof labN)
 mulberry32 = (seed) => {
   let a = seed >>> 0;
   return () => {
@@ -1287,14 +1293,30 @@ olsFit = (X, y, w) => {
 }
 logitFit = (X, y) => {
   let beta = new Array(X[0].length).fill(0);
-  for (let it = 0; it < 12; it++) {
+  for (let it = 0; it < 10; it++) {
     const w = [], z = [];
     X.forEach((x, i) => {
       const eta = x.reduce((s, v, k) => s + v * beta[k], 0), mu = Math.min(1 - 1e-6, Math.max(1e-6, expit(eta))), wi = mu * (1 - mu);
       w.push(wi); z.push(eta + (y[i] - mu) / wi);
     });
-    beta = olsFit(X, z, w);
+    const next = olsFit(X, z, w);
+    const delta = next.reduce((m, v, k) => Math.max(m, Math.abs(v - beta[k])), 0);
+    beta = next;
+    if (delta < 1e-6) break;
   }
   return beta;
 }
+// Emite el valor de un input como máximo cada `delay` ms (evita recomputar en cada píxel del deslizador)
+debounce = (input, delay = 250) => Generators.observe(notify => {
+  let timer = null, value;
+  const inputted = () => {
+    if (timer !== null) return;
+    notify(value = input.value);
+    timer = setTimeout(delayed, delay);
+  };
+  const delayed = () => { timer = null; if (value !== input.value) notify(value = input.value); };
+  input.addEventListener("input", inputted);
+  inputted();
+  return () => input.removeEventListener("input", inputted);
+})
 ```
