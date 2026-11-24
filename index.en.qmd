@@ -1,0 +1,1369 @@
+---
+pagetitle: "Classical and Bayesian Causal Inference"
+author: "Jhonier Rangel & Ravi Kalia, PhD"
+date: 2026-11-14
+lang: en
+format:
+  revealjs:
+    theme: [default, assets/theme.scss]
+    width: 1280
+    height: 720
+    margin: 0.06
+    slide-number: c/t
+    show-slide-number: all
+    hash: true
+    transition: fade
+    background-transition: fade
+    code-copy: true
+    code-overflow: scroll
+    code-line-numbers: false
+    highlight-style: github
+    html-math-method: mathjax
+    footer: "Jhonier Rangel & Ravi Kalia, PhD · Classical and Bayesian Causal Inference"
+    menu:
+      side: left
+      numbers: true
+    include-in-header: assets/three-header.html
+    include-after-body: assets/three-body.html
+execute:
+  echo: false
+---
+
+## {#hero background-color="#0d1730" data-menu-title="Title slide"}
+
+::: {.three-bg data-three="hero" data-prevent-swipe=""}
+:::
+
+::: {.hero-text}
+[Classical and Bayesian Causal Inference]{.hero-title}
+
+[Identification, estimation, and uncertainty: a formal, hands-on treatment]{.subtitle}
+
+[Jhonier Rangel · Ravi Kalia, PhD · November 14, 2026]{.byline}
+
+[Interactive edition · <kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>M</kbd> menu · <kbd>S</kbd> notes · [Versión en español](index.html){.langlink lang="es"}]{.hint}
+:::
+
+## Roadmap
+
+1. [Foundations](#fundamentos)
+2. [Potential outcomes](#resultados-potenciales)
+3. [Structural causal models](#modelos-causales-estructurales)
+4. [Classical estimation](#estimación-clásica)
+5. [Bayesian causal inference](#inferencia-causal-bayesiana)
+6. [Synthesis and takeaways](#comparación-y-cierre)
+
+. . .
+
+::: {.readout}
+This edition includes **live simulations** (sliders), **rotatable 3D scenes**, and **code in R and Python**. Everything runs in your browser. The complete, verified R script is [`code/inferencia_causal.R`](code/inferencia_causal.R) (comments in Spanish); the original Spanish PDF is in [`original/`](original/Inferencia_causal_clasica_y_bayesiana.pdf).
+:::
+
+## Why should you care? {.smaller data-menu-title="Motivation"}
+
+**Every method in this deck answers one deceptively simple question: "did the intervention actually change anything?"**
+
+- A hospital adopts a new treatment. Patients who received it look healthier — but were they already less sick when they were assigned?
+- A tutoring program raises test scores. Were the volunteers already on an upward trajectory?
+- A city installs cameras and crashes fall. Was it the cameras, or regression to the mean after a bad year?
+
+::: {.block .alert data-title="The thread for the whole deck"}
+Association tells you what happened together. Causal inference compares what happened with what **would have happened** had we acted differently. Graphs, estimators, and priors are all tools for making that comparison honest.
+:::
+
+[Keep one concrete example in mind as we go — the math is much easier when you have a story to attach it to.]{.small .muted}
+
+## What you'll take away {data-menu-title="Goals"}
+
+By the end of this deck you should be able to:
+
+1. **Pose the question precisely** — name the treatment, the outcome, the population, and the estimand.
+2. **Draw the story** — build a DAG and defend your adjustment set, including what *not* to adjust for.
+3. **Choose an estimator** — know when regression, IPW, AIPW/DML, or a Bayesian model is the right tool.
+4. **Interrogate the answer** — check overlap, run sensitivity analyses, and communicate uncertainty honestly.
+
+::: {.block data-title="How to use this deck"}
+Every simulation is live: drag a slider, press a button, rotate a graph, and watch the conclusion change. When a claim feels abstract, find the widget that lets you break it. Nothing here is meant to be taken on faith.
+:::
+
+# Foundations {#fundamentos .section-title background-color="#14213d"}
+
+[From *what we observe* to *what we wish we knew*.]{.section-subtitle}
+
+## Association versus causation
+
+- An association is a property of $P(Y \mid T)$; a causal effect is a property of $P(Y \mid \operatorname{do}(T))$ or of potential outcomes.
+- In general $P(y \mid t) \neq P(y \mid \operatorname{do}(t))$ when $T$ and $Y$ share common causes.
+- Causal inference requires assumptions that cannot be checked from the observed data: the data alone do not identify the effect.
+
+::: {.block .alert data-title="Guiding principle"}
+No causal assumptions, no causal conclusions (Cartwright, Pearl).
+:::
+
+::: {.block data-title="In plain language"}
+Correlation reports what was observed together; causation asks what would change if **you** stepped in and changed one thing. That "stepping in" is $\operatorname{do}(T)$.
+:::
+
+## The ladder of causation (Pearl)
+
+| Level | Question | Object |
+|:------|:---------|:-------|
+| 1. Association | *What do we see?* | $P(y \mid x)$ |
+| 2. Intervention | *What if I act?* | $P(y \mid \operatorname{do}(x))$ |
+| 3. Counterfactual | *What would have happened?* | $P(y_x \mid x', y')$ |
+
+Each level cannot be answered with information from the level below alone. This three-row table is the whole course in miniature.
+
+## Simpson's paradox: kidney stones
+
+|               | Small stones | Large stones | Total |
+|:--------------|:----------------:|:---------------:|:-----:|
+| Treatment A | 81/87 (93 %)  | 192/263 (73 %) | 273/350 (78 %) |
+| Treatment B | 234/270 (87 %) | 55/80 (69 %)  | 289/350 (83 %) |
+
+- Treatment A is better in **every** stratum, yet B looks better in the aggregate.
+- Stone size is a confounder: it affects both treatment assignment and the outcome.
+- The right decision depends on the DAG, not on the numbers alone.
+
+## Simpson's paradox, live {.smaller}
+
+:::: {.columns}
+::: {.column width="55%"}
+```{ojs}
+viewof pA = Inputs.range([0, 1], {value: 263/350, step: 0.01, label: "Fraction of large stones in A"})
+viewof pB = Inputs.range([0, 1], {value: 80/350, step: 0.01, label: "Fraction of large stones in B"})
+```
+
+```{ojs}
+simpsonRows = {
+  const r = {A: {peq: 81/87, gra: 192/263}, B: {peq: 234/270, gra: 55/80}};
+  const tot = (k, p) => (1 - p) * r[k].peq + p * r[k].gra;
+  return [
+    {grupo: "Small", trat: "A", tasa: r.A.peq}, {grupo: "Small", trat: "B", tasa: r.B.peq},
+    {grupo: "Large", trat: "A", tasa: r.A.gra}, {grupo: "Large", trat: "B", tasa: r.B.gra},
+    {grupo: "Total", trat: "A", tasa: tot("A", pA)}, {grupo: "Total", trat: "B", tasa: tot("B", pB)}
+  ];
+}
+Plot.plot({
+  width: 620, height: 300, marginTop: 30,
+  fx: {domain: ["Small", "Large", "Total"], label: null},
+  x: {axis: null, domain: ["A", "B"]},
+  y: {domain: [0, 1.08], label: "Success rate", tickFormat: "%", grid: true},
+  color: {domain: ["A", "B"], range: ["#14213d", "#c8742b"], legend: true},
+  marks: [
+    Plot.barY(simpsonRows, {fx: "grupo", x: "trat", y: "tasa", fill: "trat"}),
+    Plot.text(simpsonRows, {fx: "grupo", x: "trat", y: "tasa", text: d => (100 * d.tasa).toFixed(0) + "%", dy: -9, fontSize: 13})
+  ]
+})
+```
+:::
+::: {.column width="45%"}
+```{ojs}
+{
+  const a = simpsonRows[4].tasa, b = simpsonRows[5].tasa;
+  return html`<div class="readout">
+    Aggregate: A = <b>${(100*a).toFixed(1)}%</b>, B = <b>${(100*b).toFixed(1)}%</b><br>
+    ${a < b ? "⚠️ <b>Paradox:</b> B 'wins' overall even though A wins in every stratum. A got the harder cases."
+            : "✓ With similar case mixes, the aggregate favors A again."}
+  </div>`;
+}
+```
+
+Move the sliders: the rates **within** each stratum never change — only **who gets which cases** does. The aggregate mixes the treatment effect with the effect of severity.
+
+```r
+# Standardization (adjusting for the confounder)
+w <- c(peq = 357, gra = 343) / 700   # P(stone size)
+A <- c(81/87, 192/263); B <- c(234/270, 55/80)
+sum(w * A) - sum(w * B)              # ≈ +0.05 in favor of A
+```
+:::
+::::
+
+# Potential Outcomes {#resultados-potenciales .section-title background-color="#14213d"}
+
+[Every causal effect is a comparison of two worlds, only one of which we get to see.]{.section-subtitle}
+
+## The Neyman–Rubin framework
+
+::: {.block data-title="Definition 1"}
+For each unit $i$ and binary treatment $T_i \in \{0,1\}$, the potential outcomes are $Y_i(1)$ and $Y_i(0)$. The observed outcome is
+$$Y_i = T_i Y_i(1) + (1-T_i) Y_i(0).$$
+:::
+
+::: {.block data-title="The fundamental problem"}
+For each $i$, only one of $Y_i(1), Y_i(0)$ is observed; the other is missing. The individual effect $\tau_i = Y_i(1) - Y_i(0)$ is not identifiable.
+:::
+
+## Causal estimands
+
+$$
+\begin{aligned}
+\text{ATE} &= \mathbb{E}[Y(1) - Y(0)] \\
+\text{ATT} &= \mathbb{E}[Y(1) - Y(0) \mid T = 1] \\
+\text{ATC} &= \mathbb{E}[Y(1) - Y(0) \mid T = 0] \\
+\text{CATE}(x) &= \mathbb{E}[Y(1) - Y(0) \mid X = x]
+\end{aligned}
+$$
+
+- $\text{ATE} = \mathbb{P}(T=1)\,\text{ATT} + \mathbb{P}(T=0)\,\text{ATC}$.
+- Also: quantile effects, risk-ratio effects, and odds-ratio effects.
+- Choosing the *estimand* is a scientific decision that comes **before** choosing the *estimator*.
+
+## The SUTVA assumption
+
+::: {.block data-title="Definition 2 (SUTVA)"}
+(i) *No interference*: $Y_i$ depends only on $T_i$, not on $T_j$ for $j \neq i$. (ii) *Single version*: there are no different versions of the treatment with different effects.
+:::
+
+- It fails with contagion, social networks, general-equilibrium or spillover effects.
+- With interference the effect depends on the whole assignment vector $\mathbf{T}$, and direct and indirect estimands are needed.
+
+## Assignment mechanism and selection bias
+
+The naive difference in means decomposes as
+
+$$
+\mathbb{E}[Y \mid T=1] - \mathbb{E}[Y \mid T=0] = \underbrace{\text{ATT}}_{\text{effect}} + \underbrace{\mathbb{E}[Y(0) \mid T=1] - \mathbb{E}[Y(0) \mid T=0]}_{\text{selection bias}}.
+$$
+
+- The bias measures how different the groups would be **without** treatment.
+- Randomization removes it because $T \perp\!\!\!\perp (Y(0), Y(1))$.
+
+## Selection bias, live {.smaller}
+
+:::: {.columns}
+::: {.column width="58%"}
+```{ojs}
+viewof kSel = Inputs.range([-2, 2], {value: 1, step: 0.05, label: "Selection on X (k)"})
+viewof aleat = Inputs.toggle({label: "Randomize T", value: false})
+```
+
+```{ojs}
+selRes = {
+  const rng = mulberry32(42), n = 20000;
+  let s1 = 0, s0 = 0, n1 = 0, n0 = 0, y01 = 0, y00 = 0, att = 0;
+  for (let i = 0; i < n; i++) {
+    const x = randn(rng);
+    const t = aleat ? (rng() < 0.5 ? 1 : 0) : (kSel * x + randn(rng) > 0 ? 1 : 0);
+    const y0 = x + randn(rng), y1 = y0 + 1;   // true effect = 1
+    if (t) { n1++; s1 += y1; y01 += y0; att += y1 - y0; } else { n0++; s0 += y0; y00 += y0; }
+  }
+  const naive = s1 / n1 - s0 / n0, sesgo = y01 / n1 - y00 / n0;
+  return [
+    {termino: "Naive difference", valor: naive},
+    {termino: "ATT (effect)", valor: att / n1},
+    {termino: "Selection bias", valor: sesgo}
+  ];
+}
+Plot.plot({
+  width: 640, height: 210, marginLeft: 150,
+  marginBottom: 44, x: {domain: [-2, 3], label: "Value", grid: true, labelAnchor: "center", labelOffset: 36},
+  y: {label: null, domain: selRes.map(d => d.termino)},
+  marks: [
+    Plot.barX(selRes, {y: "termino", x: "valor", fill: d => d.termino.startsWith("ATT") ? "#2e8b57" : d.termino.startsWith("Selection") ? "#c8742b" : "#14213d"}),
+    Plot.text(selRes, {y: "termino", x: "valor", text: d => d.valor.toFixed(2), dx: 22}),
+    Plot.ruleX([0])
+  ]
+})
+```
+:::
+::: {.column width="42%"}
+Model: $Y(0) = X + \varepsilon$, $Y(1) = Y(0) + 1$, and $T = \mathbb{1}\{kX + \eta > 0\}$.
+
+- With $k > 0$, units with high $Y(0)$ get treated: the bias is **positive**.
+- With $k < 0$, the bias flips sign.
+- **Randomize** $T$ and the bias vanishes — the naive difference recovers the true effect.
+
+```r
+naive <- mean(Y[T == 1]) - mean(Y[T == 0])
+sesgo <- mean(Y0[T == 1]) - mean(Y0[T == 0])
+```
+:::
+::::
+
+## Ignorability and positivity
+
+::: {.block data-title="Definition 3 (Conditional ignorability)"}
+$(Y(0), Y(1)) \perp\!\!\!\perp T \mid X$.
+:::
+
+::: {.block data-title="Definition 4 (Positivity / common support)"}
+$0 < e(x) < 1$ for every $x$ with positive density, where $e(x) = \mathbb{P}(T = 1 \mid X = x)$.
+:::
+
+::: {.block .theorem data-title="Theorem 5 (Identifying the ATE)"}
+Under SUTVA, ignorability, and positivity,
+$$\text{ATE} = \mathbb{E}_X\big[\mathbb{E}(Y \mid T=1, X) - \mathbb{E}(Y \mid T=0, X)\big].$$
+:::
+
+## Why the identification theorem works
+
+::: {.block data-title="Proof"}
+By the law of iterated expectations,
+$$
+\begin{aligned}
+\mathbb{E}[Y(1)] &= \mathbb{E}_X\big[\mathbb{E}(Y(1) \mid X)\big] \\
+&= \mathbb{E}_X\big[\mathbb{E}(Y(1) \mid T=1, X)\big] && \text{(ignorability)} \\
+&= \mathbb{E}_X\big[\mathbb{E}(Y \mid T=1, X)\big] && \text{(consistency).}
+\end{aligned}
+$$
+Positivity guarantees that $\mathbb{E}(Y \mid T=1, X=x)$ is defined for every $x$. The same argument applies to $Y(0)$. $\square$
+:::
+
+## Randomized experiments
+
+- Complete randomization: $T \perp\!\!\!\perp (Y(0), Y(1), X)$, so $\text{ATE} = \mathbb{E}[Y \mid T=1] - \mathbb{E}[Y \mid T=0]$.
+- Neyman estimator: $\hat\tau = \bar Y_1 - \bar Y_0$, unbiased over the randomization distribution.
+- Conservative variance: $\hat V = \dfrac{s_1^2}{n_1} + \dfrac{s_0^2}{n_0}$.
+- Fisher's exact test: the sharp null $Y_i(1) = Y_i(0)$ for every $i$.
+- Covariate adjustment (Lin, 2013) reduces variance without asymptotic bias.
+
+## In code: analyzing an experiment
+
+::: {.panel-tabset}
+### R
+
+```r
+tau_hat <- mean(Y[T == 1]) - mean(Y[T == 0])                 # Neyman estimator
+V_hat   <- var(Y[T == 1]) / sum(T) + var(Y[T == 0]) / sum(1 - T)
+tau_hat + c(-1, 1) * qnorm(0.975) * sqrt(V_hat)
+
+# Fisher's exact test approximated by permutation under the sharp null
+perm <- replicate(10000, { Tp <- sample(T); mean(Y[Tp == 1]) - mean(Y[Tp == 0]) })
+mean(abs(perm) >= abs(tau_hat))                               # p-value
+
+# Lin (2013) adjustment: interactions with centered covariates + robust SEs
+Xc  <- scale(X, scale = FALSE)
+lin <- lm(Y ~ T * Xc)
+coef(lin)["T"]          # use sandwich::vcovHC(lin, "HC2") for the standard error
+```
+
+### Python
+
+```python
+import numpy as np
+rng = np.random.default_rng(1)
+tau_hat = Y[T == 1].mean() - Y[T == 0].mean()
+V_hat = Y[T == 1].var(ddof=1) / T.sum() + Y[T == 0].var(ddof=1) / (1 - T).sum()
+
+perm = np.array([(lambda Tp: Y[Tp == 1].mean() - Y[Tp == 0].mean())(rng.permutation(T))
+                 for _ in range(10_000)])
+p_fisher = np.mean(np.abs(perm) >= abs(tau_hat))
+
+import statsmodels.formula.api as smf      # Lin adjustment with HC2 standard errors
+lin = smf.ols("Y ~ T * (X1_c + X2_c)", data=df).fit(cov_type="HC2")
+```
+:::
+
+# Structural Causal Models {#modelos-causales-estructurales .section-title background-color="#14213d"}
+
+[Draw the story first. The graph tells you what to measure — and what to leave alone.]{.section-subtitle}
+
+## The structural causal model
+
+::: {.block data-title="Definition 6 (SCM)"}
+An SCM is $M = \langle U, V, F, P(U) \rangle$ with endogenous variables $V$, exogenous $U$, and functions $F = \{f_i\}$ such that $v_i = f_i(\mathrm{pa}_i, u_i)$.
+:::
+
+- The graph $G$ has an edge $V_j \to V_i$ if $V_j \in \mathrm{pa}_i$.
+- Causal Markov condition: $P(v) = \prod_i P(v_i \mid \mathrm{pa}_i)$.
+- An intervention $\operatorname{do}(T = t)$ replaces $f_T$ by the constant $t$ — *graph surgery*.
+
+## Graph surgery in 3D {data-menu-title="DAG 3D"}
+
+::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 500px"}
+:::
+
+[Press **do(T)** to erase arrows entering $T$; **adjust** puts a ring on the conditioned node. Orange pulses are open non-causal paths; green is the causal effect. Drag to rotate, click a node, and watch what opens and closes.]{.small .muted}
+
+## Basic structures and d-separation
+
+```{=html}
+<svg viewBox="0 0 1150 110" width="100%" height="110" style="font-family: 'Source Sans 3', sans-serif; font-style: italic; font-size: 26px">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#14213d"/></marker></defs>
+  <g fill="none" stroke="#14213d" stroke-width="2.2">
+    <circle cx="45" cy="55" r="27"/><circle cx="195" cy="55" r="27"/><circle cx="345" cy="55" r="27"/>
+    <line x1="72" y1="55" x2="166" y2="55" marker-end="url(#ah)"/><line x1="222" y1="55" x2="316" y2="55" marker-end="url(#ah)"/>
+    <circle cx="430" cy="55" r="27"/><circle cx="580" cy="55" r="27"/><circle cx="730" cy="55" r="27"/>
+    <line x1="553" y1="55" x2="459" y2="55" marker-end="url(#ah)"/><line x1="607" y1="55" x2="701" y2="55" marker-end="url(#ah)"/>
+    <circle cx="815" cy="55" r="27"/><circle cx="965" cy="55" r="27"/><circle cx="1115" cy="55" r="27"/>
+    <line x1="842" y1="55" x2="936" y2="55" marker-end="url(#ah)"/><line x1="1088" y1="55" x2="994" y2="55" marker-end="url(#ah)"/>
+  </g>
+  <g fill="#14213d" text-anchor="middle" dominant-baseline="central">
+    <text x="45" y="55">A</text><text x="195" y="55">B</text><text x="345" y="55">C</text>
+    <text x="430" y="55">A</text><text x="580" y="55">B</text><text x="730" y="55">C</text>
+    <text x="815" y="55">A</text><text x="965" y="55">B</text><text x="1115" y="55">C</text>
+  </g>
+</svg>
+```
+
+Chain, fork (confounder), and collider. A path is *blocked* by $Z$ if it contains a non-collider in $Z$, or a collider such that neither it nor any descendant is in $Z$. Conditioning on a collider does the opposite: it **opens** a path.
+
+::: {.block .theorem data-title="Theorem 7"}
+If $X$ and $Y$ are d-separated by $Z$ in $G$, then $X \perp\!\!\!\perp Y \mid Z$ in every distribution $P$ compatible with $G$.
+:::
+
+## d-separation, live {.smaller}
+
+:::: {.columns}
+::: {.column width="58%"}
+```{ojs}
+viewof estructura = Inputs.radio(["Chain A → B → C", "Fork A ← B → C", "Collider A → B ← C"], {value: "Collider A → B ← C"})
+viewof condB = Inputs.toggle({label: "Condition on B", value: false})
+```
+
+```{ojs}
+dsep = {
+  const rng = mulberry32(5), n = 1200, rows = [];
+  for (let i = 0; i < n; i++) {
+    let A, B, C;
+    if (estructura.startsWith("Chain")) { A = randn(rng); B = A + randn(rng); C = B + randn(rng); }
+    else if (estructura.startsWith("Fork")) { B = randn(rng); A = B + randn(rng); C = B + randn(rng); }
+    else { A = randn(rng); C = randn(rng); B = A + C + 0.5 * randn(rng); }
+    rows.push({A, B, C});
+  }
+  const sB = Math.sqrt(rows.reduce((s, r) => s + r.B * r.B, 0) / n);
+  rows.forEach(r => r.sel = Math.abs(r.B) < 0.2 * sB);
+  return rows;
+}
+Plot.plot({
+  width: 640, height: 330, grid: true,
+  marginBottom: 44, x: {domain: [-4.5, 4.5], label: "A", labelAnchor: "center", labelOffset: 36}, y: {domain: [-5, 5], label: "C"},
+  marks: [
+    Plot.dot(dsep, {x: "A", y: "C", r: 2, fill: condB ? "#b9c1d0" : "#14213d", fillOpacity: condB ? 0.4 : 0.5}),
+    condB ? Plot.dot(dsep.filter(d => d.sel), {x: "A", y: "C", r: 3, fill: "#c8742b"}) : null,
+    Plot.linearRegressionY(condB ? dsep.filter(d => d.sel) : dsep, {x: "A", y: "C", stroke: condB ? "#c8742b" : "#14213d", strokeWidth: 3, ci: 0})
+  ]
+})
+```
+:::
+::: {.column width="42%"}
+```{ojs}
+{
+  const r = rows => {
+    const n = rows.length, ma = d3.mean(rows, d => d.A), mc = d3.mean(rows, d => d.C);
+    let sac = 0, saa = 0, scc = 0;
+    for (const d of rows) { sac += (d.A - ma) * (d.C - mc); saa += (d.A - ma) ** 2; scc += (d.C - mc) ** 2; }
+    return sac / Math.sqrt(saa * scc);
+  };
+  const all = r(dsep), sel = r(dsep.filter(d => d.sel));
+  const col = estructura.startsWith("Coll");
+  return html`<div class="readout">
+    Marginal corr(A, C): <b>${all.toFixed(2)}</b><br>
+    Hypothetical corr(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
+    ${col ? "In a <b>collider</b>, A and C are independent — but conditioning on B <b>opens</b> the path and creates a spurious correlation."
+          : "In a chain or fork, A and C are associated, but conditioning on B <b>blocks</b> the path."}
+  </div>`;
+}
+```
+
+```r
+library(dagitty)
+g <- dagitty("dag { A -> B <- C }")
+dseparated(g, "A", "C", list())   # TRUE
+dseparated(g, "A", "C", "B")      # FALSE
+```
+:::
+::::
+
+## Structural biases
+
+- [Confounding]{.hl}: an open backdoor path $T \leftarrow X \rightarrow Y$.
+- [Collider bias]{.hl}: conditioning on $C$ in $T \to C \leftarrow Y$ opens a spurious path.
+- [Overadjustment]{.hl}: conditioning on a mediator $M$ in $T \to M \to Y$ blocks part of the effect.
+- [M-bias]{.hl}: conditioning on a pre-treatment collider of two unobserved causes.
+
+The rule "adjust for everything measured before treatment" is **not** generally correct — the graph decides.
+
+## The backdoor criterion
+
+::: {.block data-title="Definition 8 (Backdoor)"}
+$Z$ satisfies the backdoor criterion for $(T, Y)$ if (i) no node in $Z$ is a descendant of $T$ and (ii) $Z$ blocks every path between $T$ and $Y$ that contains an arrow into $T$.
+:::
+
+::: {.block .theorem data-title="Theorem 9"}
+If $Z$ satisfies the criterion, then
+$$P(y \mid \operatorname{do}(t)) = \sum_z P(y \mid t, z)\, P(z).$$
+:::
+
+This is equivalent to conditional ignorability given $Z$, and it justifies regression, IPW, and matching.
+
+[Back to the hospital: "were they already sicker?" is exactly the backdoor $T \leftarrow X \to Y$ this criterion closes.]{.small .muted}
+
+## The frontdoor criterion
+
+```{=html}
+<svg viewBox="0 0 600 170" width="560" height="160" style="display:block;margin:0 auto;font-family:'Source Sans 3',sans-serif;font-style:italic;font-size:24px">
+  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#14213d"/></marker></defs>
+  <g fill="none" stroke="#14213d" stroke-width="2.2">
+    <circle cx="300" cy="35" r="24" stroke-dasharray="5 4"/>
+    <circle cx="100" cy="135" r="24"/><circle cx="300" cy="135" r="24"/><circle cx="500" cy="135" r="24"/>
+    <line x1="124" y1="135" x2="272" y2="135" marker-end="url(#ah2)"/><line x1="324" y1="135" x2="472" y2="135" marker-end="url(#ah2)"/>
+    <line x1="280" y1="48" x2="124" y2="122" stroke-dasharray="6 5" marker-end="url(#ah2)"/><line x1="320" y1="48" x2="476" y2="122" stroke-dasharray="6 5" marker-end="url(#ah2)"/>
+  </g>
+  <g fill="#14213d" text-anchor="middle" dominant-baseline="central">
+    <text x="300" y="35">U</text><text x="100" y="135">T</text><text x="300" y="135">M</text><text x="500" y="135">Y</text>
+  </g>
+</svg>
+```
+
+If $M$ intercepts every directed path from $T$ to $Y$, there is no backdoor $T \leftarrow \cdot \rightarrow M$, and $T$ blocks the paths from $M \to Y$:
+$$P(y \mid \operatorname{do}(t)) = \sum_m P(m \mid t) \sum_{t'} P(y \mid m, t')\, P(t').$$
+
+It identifies the effect even when the confounder $U$ is unobserved — a genuinely remarkable result.
+
+## In code: identification from the DAG
+
+::: {.panel-tabset}
+### R · dagitty
+
+```r
+library(dagitty)
+g <- dagitty("dag {
+  X -> T ; X -> Y
+  U -> T ; U -> Y
+  T -> M -> Y
+  U [latent]
+}")
+adjustmentSets(g, exposure = "T", outcome = "Y")  # no set: U blocks the backdoor
+adjustmentSets(g, exposure = "M", outcome = "Y")  # { T }: frontdoor, stage 2
+impliedConditionalIndependencies(g)               # testable implications
+```
+
+### Python · DoWhy
+
+```python
+from dowhy import CausalModel
+
+model = CausalModel(
+    data=df, treatment="T", outcome="Y",
+    graph="digraph { X -> T; X -> Y; U -> T; U -> Y; T -> M; M -> Y; }",
+)  # U is not in df: treated as unobserved
+estimand = model.identify_effect()        # finds the frontdoor estimand
+print(estimand)
+est = model.estimate_effect(estimand, method_name="frontdoor.two_stage_regression")
+```
+:::
+
+## do-calculus {.smaller}
+
+Let $G_{\overline{X}}$ be the graph with arrows into $X$ removed and $G_{\underline{Z}}$ the graph with arrows out of $Z$ removed.
+
+1. **Insertion/deletion of observations**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}}}$, then $P(y \mid \operatorname{do}(x), z, w) = P(y \mid \operatorname{do}(x), w)$.
+2. **Action/observation**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\underline{Z}}}$, then $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), z, w)$.
+3. **Insertion/deletion of actions**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\,\overline{Z(W)}}}$, then $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), w)$.
+
+::: {.block .theorem data-title="Theorem 10 (Completeness, Shpitser–Pearl; Huang–Valtorta)"}
+A causal effect is identifiable from $P(v)$ and $G$ **if and only if** it can be derived using these three rules.
+:::
+
+## Counterfactuals in an SCM
+
+To evaluate $P(Y_t \mid T = t', Y = y')$, follow three steps:
+
+1. **Abduction**: update $P(U)$ with the evidence $\{T = t', Y = y'\}$ to obtain $P(U \mid t', y')$.
+2. **Action**: modify the model with $\operatorname{do}(T = t)$.
+3. **Prediction**: compute the distribution of $Y$ in the modified model using $P(U \mid t', y')$.
+
+Counterfactuals are identifiable only with extra assumptions about $f$ (e.g. monotonicity); treatment effects and probabilities of necessity and sufficiency can still be bounded.
+
+# Classical Estimation {#estimación-clásica .section-title background-color="#14213d"}
+
+[Many tools, one goal: recover a comparison that nature did not hand us.]{.section-subtitle}
+
+## Regression and the Frisch–Waugh–Lovell theorem
+
+Model $Y = \alpha + \tau T + X^\top \beta + \varepsilon$.
+
+::: {.block .theorem data-title="Theorem 11 (FWL)"}
+$\hat\tau$ equals the slope from regressing $\tilde Y = Y - \hat Y(X)$ on $\tilde T = T - \hat T(X)$.
+:::
+
+- $\hat\tau$ estimates the ATE if $\mathbb{E}[Y(t) \mid X]$ is linear in $X$ and the effect is homogeneous; with heterogeneity it estimates a weighted average, with weights proportional to $\mathbb{V}(T \mid X)$.
+- Include $T \times X$ interactions (imputation estimator / g-computation) to let the effect vary.
+
+```r
+ry <- resid(lm(Y ~ X1 + X2, d)); rt <- resid(lm(T ~ X1 + X2, d))
+all.equal(unname(coef(lm(ry ~ rt))[2]),                     # TRUE: FWL
+          unname(coef(lm(Y ~ T + X1 + X2, d))["T"]))
+fit <- lm(Y ~ T * (X1 + X2), d)                           # g-computation
+mean(predict(fit, transform(d, T = 1)) - predict(fit, transform(d, T = 0)))
+```
+
+## The propensity score
+
+::: {.block .theorem data-title="Theorem 12 (Rosenbaum–Rubin, 1983)"}
+If $(Y(0), Y(1)) \perp\!\!\!\perp T \mid X$ and $0 < e(X) < 1$, then $(Y(0), Y(1)) \perp\!\!\!\perp T \mid e(X)$.
+:::
+
+::: {.block data-title="Proof"}
+$\mathbb{P}(T=1 \mid Y(0), Y(1), e(X)) = \mathbb{E}\big[\mathbb{E}(T \mid Y(0), Y(1), X) \mid Y(0), Y(1), e(X)\big] = \mathbb{E}[e(X) \mid Y(0), Y(1), e(X)] = e(X)$. Since this no longer depends on $(Y(0), Y(1))$, ignorability holds. $\square$
+:::
+
+The balancing score collapses many covariates into one number: $X \perp\!\!\!\perp T \mid e(X)$. That is why it is so useful.
+
+## The propensity surface $e(x)$ in 3D {data-menu-title="Propensity 3D"}
+
+::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 500px"}
+:::
+
+[Raise **confounding γ**: the surface turns into a step, the groups stop overlapping, and a handful of IPW weights $1/\hat e$ dominate. This is positivity in action — and the moment estimation becomes fragile.]{.small .muted}
+
+## Inverse probability weighting (IPW)
+
+$$
+\hat\tau_{\text{IPW}} = \frac{1}{n} \sum_{i=1}^n \left[ \frac{T_i Y_i}{\hat e(X_i)} - \frac{(1-T_i) Y_i}{1 - \hat e(X_i)} \right]
+$$
+
+::: {.block data-title="Unbiasedness with known e"}
+$\mathbb{E}\Big[\frac{TY}{e(X)}\Big] = \mathbb{E}\Big[\frac{T\,Y(1)}{e(X)}\Big] = \mathbb{E}\Big[\frac{\mathbb{E}(T \mid X, Y(1))}{e(X)} Y(1)\Big] = \mathbb{E}[Y(1)]$. $\square$
+:::
+
+- Variance explodes when $e(X)$ is near 0 or 1; use stabilization (Hájek) or trimming.
+- Weights for the ATT: $T + (1-T)\,\hat e / (1 - \hat e)$.
+
+## Matching and stratification
+
+- **Nearest neighbor** on $e(X)$ or Mahalanobis distance, with or without replacement.
+- **Abadie–Imbens**: impute the counterfactual from the $M$ nearest neighbors, with a regression-adjusted bias correction.
+- **Stratification**: five subclasses on $e(X)$ remove about $90\%$ of the bias (Cochran).
+- **Balance**: check standardized mean differences $|\text{SMD}| < 0.1$ after matching.
+- Score matching is not $\sqrt{n}$-consistent with the usual variance formula: use Abadie–Imbens standard errors or an appropriate bootstrap.
+
+```r
+library(MatchIt); library(marginaleffects)
+m  <- matchit(T ~ X1 + X2, data = d, method = "nearest", distance = "glm", caliper = 0.1)
+summary(m)                                        # |SMD| before and after
+md <- match.data(m)
+fit <- lm(Y ~ T * (X1 + X2), data = md, weights = weights)
+avg_comparisons(fit, variables = "T", vcov = ~subclass,
+                newdata = subset(md, T == 1), wts = "weights")   # ATT
+```
+
+## The doubly robust estimator (AIPW) {.smaller}
+
+$$
+\hat\psi_i = \hat\mu_1(X_i) - \hat\mu_0(X_i) + \frac{T_i (Y_i - \hat\mu_1(X_i))}{\hat e(X_i)} - \frac{(1-T_i)(Y_i - \hat\mu_0(X_i))}{1 - \hat e(X_i)}, \qquad \hat\tau = \tfrac{1}{n} \textstyle\sum_i \hat\psi_i
+$$
+
+::: {.block .theorem data-title="Theorem 13 (Double robustness)"}
+$\hat\tau$ is consistent if **either** $\hat e$ **or** $\hat\mu_t$ is consistent — two chances to get it right.
+:::
+
+::: {.block data-title="Why it works"}
+If $\hat e = e$: $\mathbb{E}[T(Y - \hat\mu_1)/e] = \mathbb{E}[Y(1) - \hat\mu_1(X)]$, which cancels the first term. If $\hat\mu_1 = \mu_1$: $\mathbb{E}[T(Y - \mu_1)/\hat e] = \mathbb{E}\big[\tfrac{T}{\hat e}(\mathbb{E}(Y \mid X, T=1) - \mu_1)\big] = 0$. $\square$
+:::
+
+## In code: IPW and AIPW
+
+::: {.panel-tabset}
+### R
+
+```r
+ps  <- fitted(glm(T ~ X1 + X2, family = binomial, data = d))
+ipw <- mean(T * Y / ps) - mean((1 - T) * Y / (1 - ps))            # Horvitz–Thompson
+w1 <- T / ps; w0 <- (1 - T) / (1 - ps)
+hajek <- sum(w1 * Y) / sum(w1) - sum(w0 * Y) / sum(w0)             # stabilized (Hájek)
+
+mu1 <- predict(lm(Y ~ X1 + X2, data = d, subset = T == 1), d)
+mu0 <- predict(lm(Y ~ X1 + X2, data = d, subset = T == 0), d)
+psi <- mu1 - mu0 + T * (Y - mu1) / ps - (1 - T) * (Y - mu0) / (1 - ps)
+c(aipw = mean(psi), se = sd(psi) / sqrt(nrow(d)))                  # SE from the influence function
+```
+
+### Python
+
+```python
+import numpy as np
+from sklearn.linear_model import LogisticRegression, LinearRegression
+
+e = LogisticRegression(penalty=None).fit(X, T).predict_proba(X)[:, 1]
+mu1 = LinearRegression().fit(X[T == 1], Y[T == 1]).predict(X)
+mu0 = LinearRegression().fit(X[T == 0], Y[T == 0]).predict(X)
+
+ipw = np.mean(T * Y / e) - np.mean((1 - T) * Y / (1 - e))
+psi = mu1 - mu0 + T * (Y - mu1) / e - (1 - T) * (Y - mu0) / (1 - e)
+aipw, se = psi.mean(), psi.std(ddof=1) / np.sqrt(len(psi))
+```
+:::
+
+## Lab: which estimator survives? {.smaller}
+
+:::: {.columns}
+::: {.column width="40%"}
+```{ojs}
+viewof labGamma = Inputs.range([0, 2.5], {value: 1.2, step: 0.1, label: "Confounding γ"})
+viewof labN = Inputs.range([200, 2000], {value: 500, step: 100, label: "n per replicate"})
+viewof labBadE = Inputs.toggle({label: "ê(X) misspecified (omits X₂)", value: false})
+viewof labBadMu = Inputs.toggle({label: "μ̂(X) misspecified (omits X₂)", value: false})
+```
+
+[60 Monte Carlo replicates. Truth: $\tau = 2$. Model: $T \sim \text{Bern}(\text{expit}(\gamma(0.7X_1 + 0.9X_2)))$, $Y = 1 + 2T + X_1 + 1.5X_2 + \varepsilon$. Break one or both nuisance models and watch what survives.]{.tiny}
+
+```{ojs}
+html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d.metodo}: bias <b>${d.sesgo.toFixed(2)}</b>, SD ${d.de.toFixed(2)}</div>`).join("")}
+<div style="margin-top:6px">${labGamma < 0.2 ? "Little or no confounding: assignment is nearly random, so even misspecified models land on 2." : labBadE && labBadMu ? "Both models are wrong: even AIPW cannot save us now." : (labBadE || labBadMu) ? "One model is wrong, but <b>AIPW</b> stays centered at 2 — that is double robustness." : "All models correct: every adjustment works, and AIPW has the smallest spread."}</div></div>`
+```
+:::
+::: {.column width="60%"}
+```{ojs}
+labRes = {
+  const rng = mulberry32(99), n = labND, out = [];
+  const dot = (a, b) => { let t = 0; for (let k = 0; k < a.length; k++) t += a[k] * b[k]; return t; };
+  for (let r = 0; r < 60; r++) {
+    const T = new Float64Array(n), Y = new Float64Array(n), rowsE = [], rows1 = [], rows0 = [], rowsMu = [];
+    for (let i = 0; i < n; i++) {
+      const x1 = randn(rng), x2 = randn(rng);
+      const t = rng() < expit(labGammaD * (0.7 * x1 + 0.9 * x2)) ? 1 : 0;
+      T[i] = t; Y[i] = 1 + 2 * t + x1 + 1.5 * x2 + randn(rng);
+      // precompute design rows once per replicate
+      rowsE.push(labBadE ? [1, x1] : [1, x1, x2]);
+      rows1.push(labBadMu ? [1, 1, x1] : [1, 1, x1, x2]);
+      rows0.push(labBadMu ? [1, 0, x1] : [1, 0, x1, x2]);
+      rowsMu.push(t ? rows1[i] : rows0[i]);
+    }
+    const bE = logitFit(rowsE, T), bMu = olsFit(rowsMu, Y);
+    let m1 = 0, m0 = 0, n1 = 0, sw1 = 0, sw0 = 0, sy1 = 0, sy0 = 0, aipw = 0;
+    for (let i = 0; i < n; i++) {
+      const e = Math.min(0.995, Math.max(0.005, expit(dot(bE, rowsE[i]))));
+      const mu1 = dot(bMu, rows1[i]), mu0 = dot(bMu, rows0[i]);
+      if (T[i]) { m1 += Y[i]; n1++; sw1 += 1 / e; sy1 += Y[i] / e; }
+      else { m0 += Y[i]; sw0 += 1 / (1 - e); sy0 += Y[i] / (1 - e); }
+      aipw += mu1 - mu0 + T[i] * (Y[i] - mu1) / e - (1 - T[i]) * (Y[i] - mu0) / (1 - e);
+    }
+    out.push({metodo: "Naive", est: m1 / n1 - m0 / (n - n1)});
+    out.push({metodo: "Regression", est: bMu[1]});
+    out.push({metodo: "IPW (Hajek)", est: sy1 / sw1 - sy0 / sw0});
+    out.push({metodo: "AIPW", est: aipw / n});
+  }
+  return out;
+}
+labTable = d3.groups(labRes, d => d.metodo).map(([metodo, v]) => ({
+  metodo, sesgo: d3.mean(v, d => d.est) - 2, de: d3.deviation(v, d => d.est)
+}))
+Plot.plot({
+  width: 700, height: 360, marginLeft: 100,
+  marginBottom: 44, x: {domain: [0.5, 5.5], label: "Effect estimate (60 replicates)", grid: true, labelAnchor: "center", labelOffset: 36},
+  y: {domain: ["Naive", "Regression", "IPW (Hajek)", "AIPW"], label: null},
+  color: {domain: ["Naive", "Regression", "IPW (Hajek)", "AIPW"], range: ["#9aa3b5", "#14213d", "#c8742b", "#2e8b57"]},
+  marks: [
+    Plot.ruleX([2], {stroke: "#2e8b57", strokeWidth: 2, strokeDasharray: "6 4"}),
+    Plot.boxX(labRes, {x: "est", y: "metodo", fill: "metodo", fillOpacity: 0.35, stroke: "metodo"}),
+  ]
+})
+```
+:::
+::::
+
+## Machine learning and double debiasing {.smaller}
+
+- Efficient influence function of the ATE: $\psi = \mu_1 - \mu_0 + \frac{T(Y - \mu_1)}{e} - \frac{(1-T)(Y - \mu_0)}{1-e} - \tau$; its variance is the semiparametric efficiency bound.
+- **DML** (Chernozhukov et al., 2018): estimate $\mu_t$ and $e$ with ML plus *cross-fitting*. Neyman orthogonality gives $\sqrt{n}$-consistency when nuisance errors multiply to $o_p(n^{-1/2})$.
+- **TMLE** (van der Laan): a targeted updating step that respects the efficiency bound.
+- **Causal forests** (Wager–Athey): estimate $\text{CATE}(x)$ with asymptotic inference.
+
+::: {.panel-tabset}
+### R · DoubleML
+
+```r
+library(DoubleML); library(mlr3); library(mlr3learners)
+dml_data <- DoubleMLData$new(d, y_col = "Y", d_cols = "T", x_cols = c("X1", "X2"))
+irm <- DoubleMLIRM$new(dml_data, ml_g = lrn("regr.ranger"),
+                       ml_m = lrn("classif.ranger"), n_folds = 5)
+irm$fit(); irm$summary()
+```
+
+### R · grf
+
+```r
+library(grf)
+cf <- causal_forest(X = as.matrix(d[, c("X1", "X2")]), Y = d$Y, W = d$T)
+average_treatment_effect(cf, target.sample = "all")   # AIPW with forests
+tau_x <- predict(cf)$predictions                       # CATE(x_i)
+```
+
+### Python · DoubleML
+
+```python
+import doubleml as dml
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+data = dml.DoubleMLData(df, y_col="Y", d_cols="T", x_cols=["X1", "X2"])
+irm = dml.DoubleMLIRM(data, ml_g=RandomForestRegressor(), ml_m=RandomForestClassifier(), n_folds=5)
+irm.fit(); print(irm.summary)
+```
+:::
+
+## Difference in differences
+
+$$
+\tau_{\text{DiD}} = \big(\mathbb{E}[Y_1 \mid T=1] - \mathbb{E}[Y_0 \mid T=1]\big) - \big(\mathbb{E}[Y_1 \mid T=0] - \mathbb{E}[Y_0 \mid T=0]\big)
+$$
+
+::: {.block .theorem data-title="Theorem 14"}
+Under parallel trends, $\mathbb{E}[Y_1(0) - Y_0(0) \mid T=1] = \mathbb{E}[Y_1(0) - Y_0(0) \mid T=0]$, and with no anticipation, $\tau_{\text{DiD}} = \text{ATT}$.
+:::
+
+- With staggered adoption, two-way fixed effects can assign negative weights; use Callaway–Sant'Anna, Sun–Abraham, or de Chaisemartin–D'Haultfœuille.
+- Check pre-trends with event-study plots — the single most convincing diagnostic in DiD.
+
+```r
+library(did)
+out <- att_gt(yname = "y", tname = "anio", idname = "id", gname = "primer_trat",
+              data = panel, control_group = "notyettreated")
+ggdid(aggte(out, type = "dynamic"))   # event study: pre-trends ≈ 0
+```
+
+## Instrumental variables
+
+An instrument $Z$ needs: relevance $\operatorname{Cov}(Z, T) \neq 0$; independence $Z \perp\!\!\!\perp (Y(t), T(z))$; exclusion $Y(t, z) = Y(t)$; monotonicity $T(1) \geq T(0)$.
+
+::: {.block .theorem data-title="Theorem 15 (LATE, Imbens–Angrist)"}
+$$\frac{\mathbb{E}[Y \mid Z=1] - \mathbb{E}[Y \mid Z=0]}{\mathbb{E}[T \mid Z=1] - \mathbb{E}[T \mid Z=0]} = \mathbb{E}[Y(1) - Y(0) \mid T(1) > T(0)].$$
+:::
+
+- It estimates the effect for *compliers*, not the ATE. Know who you are talking about.
+- Weak instruments: bias toward OLS and non-standard inference (first-stage $F$, Anderson–Rubin).
+
+```r
+library(fixest)
+iv <- feols(Y ~ X1 | T ~ Z, data = d)      # MC2E
+summary(iv); fitstat(iv, ~ ivf + ivwald)    # first-stage F
+```
+
+## Regression discontinuity and synthetic control
+
+**RDD** with assignment variable $X$ and cutoff $c$:
+$$\tau_{\text{RD}} = \lim_{x \downarrow c} \mathbb{E}[Y \mid X = x] - \lim_{x \uparrow c} \mathbb{E}[Y \mid X = x],$$
+identified if $\mathbb{E}[Y(t) \mid X = x]$ is continuous at $c$. Estimate by local regression with an optimal bandwidth (Imbens–Kalyanaraman; Calonico–Cattaneo–Titiunik), and test for density manipulation (McCrary).
+
+**Synthetic control**: weights $w_j \geq 0$, $\sum w_j = 1$ minimizing $\|X_1 - X_0 w\|$; the counterfactual is $\sum_j w_j Y_{jt}$. Inference comes from placebo tests.
+
+## RDD live: choosing the bandwidth {.smaller}
+
+:::: {.columns}
+::: {.column width="62%"}
+```{ojs}
+viewof rdH = Inputs.range([0.05, 1], {value: 0.3, step: 0.01, label: "Bandwidth h"})
+```
+
+```{ojs}
+rdData = {
+  const rng = mulberry32(17), out = [];
+  for (let i = 0; i < 600; i++) {
+    const x = 2 * rng() - 1;
+    out.push({x, y: 0.4 + 0.9 * x - 0.9 * x * x + 0.5 * (x >= 0) + 0.25 * randn(rng)});
+  }
+  return out;
+}
+rdFit = {
+  const side = (s) => {
+    let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, k = 0;
+    for (const d of rdData) {
+      if ((s > 0) !== (d.x >= 0) || Math.abs(d.x) >= rdH) continue;
+      const w = 1 - Math.abs(d.x) / rdH; k++;
+      sw += w; sx += w * d.x; sy += w * d.y; sxx += w * d.x * d.x; sxy += w * d.x * d.y;
+    }
+    const b = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), a = (sy - b * sx) / sw;
+    return {a, b, k};
+  };
+  const L = side(-1), R = side(1);
+  return {L, R, tau: R.a - L.a};
+}
+Plot.plot({
+  width: 700, height: 340, grid: true,
+  marginBottom: 44, x: {domain: [-1, 1], label: "Assignment variable X (cutoff c = 0)", labelAnchor: "center", labelOffset: 36}, y: {label: "Y"},
+  marks: [
+    Plot.rect([{x1: -rdH, x2: rdH}], {x1: "x1", x2: "x2", fill: "#c8742b", fillOpacity: 0.08}),
+    Plot.dot(rdData, {x: "x", y: "y", r: 2, fill: d => Math.abs(d.x) < rdH ? "#14213d" : "#c3c9d6"}),
+    Plot.line([[-rdH, rdFit.L.a - rdFit.L.b * rdH], [0, rdFit.L.a]], {stroke: "#c8742b", strokeWidth: 3}),
+    Plot.line([[0, rdFit.R.a], [rdH, rdFit.R.a + rdFit.R.b * rdH]], {stroke: "#c8742b", strokeWidth: 3}),
+    Plot.ruleX([0], {strokeDasharray: "4 3"})
+  ]
+})
+```
+:::
+::: {.column width="38%"}
+```{ojs}
+html`<div class="readout">τ̂<sub>RD</sub> = <b>${rdFit.tau.toFixed(3)}</b> (truth: 0.5)<br>
+Observations used: ${rdFit.L.k + rdFit.R.k}<br><br>
+${rdH > 0.6 ? "Large h: more data, but curvature biases the local fit." : rdH < 0.12 ? "Small h: little bias, but high variance." : "A reasonable bias–variance trade-off."}</div>`
+```
+
+Local linear regression with a triangular kernel on each side of the cutoff. `rdrobust` picks $h$ optimally and corrects the bias:
+
+```r
+library(rdrobust); library(rddensity)
+summary(rdrobust(y, x, c = 0))   # optimal h + robust CI
+rdplot(y, x, c = 0)
+summary(rddensity(x, c = 0))     # manipulation test
+```
+:::
+::::
+
+## Sensitivity to unmeasured confounding {.smaller}
+
+- **Rosenbaum bounds**: a parameter $\Gamma$ such that $\frac{1}{\Gamma} \leq \frac{e(x)/(1 - e(x))}{e(x')/(1 - e(x'))} \leq \Gamma$ for matched units.
+- **E-value** (VanderWeele–Ding): $E = \text{RR} + \sqrt{\text{RR}(\text{RR} - 1)}$, the minimum association an unmeasured confounder would need with both $T$ and $Y$ to explain away the effect.
+- **Cinelli–Hazlett**: $R^2_{Y \sim U \mid T, X}$ and $R^2_{T \sim U \mid X}$ as sensitivity contours.
+- **Manski bounds**: partial identification without ignorability assumptions.
+
+:::: {.columns}
+::: {.column width="55%"}
+```{ojs}
+viewof rrObs = Inputs.range([1.05, 5], {value: 2, step: 0.05, label: "Observed RR"})
+```
+```{ojs}
+{
+  const E = rrObs + Math.sqrt(rrObs * (rrObs - 1));
+  const curve = d3.range(rrObs + 0.02, 12, 0.02).map(u => ({u, v: rrObs * (u - 1) / (u - rrObs)})).filter(d => d.v <= 12);
+  return Plot.plot({
+    width: 560, height: 250, grid: true,
+    marginBottom: 44, x: {domain: [1, 12], label: "Confounder–outcome RR", labelAnchor: "center", labelOffset: 36}, y: {domain: [1, 12], label: "Confounder–treatment RR"},
+    marks: [
+      Plot.areaY(curve, {x: "u", y1: "v", y2: 12, fill: "#c8742b", fillOpacity: 0.15}),
+      Plot.line(curve, {x: "u", y: "v", stroke: "#c8742b", strokeWidth: 2.5}),
+      Plot.dot([{E}], {x: "E", y: "E", r: 6, fill: "#14213d"}),
+      Plot.text([{E}], {x: "E", y: "E", text: d => `E = ${d.E.toFixed(2)}`, dx: 40, dy: -10, fontWeight: 600})
+    ]
+  });
+}
+```
+:::
+::: {.column width="45%"}
+[The shaded region contains confounders strong enough to explain away the entire observed effect. Back to the cameras: the E-value asks how strong the underlying crime trend would have to be.]{.small}
+
+```r
+library(EValue); library(sensemakr)
+evalues.RR(est = 2.0, lo = 1.5, hi = 2.7)
+s <- sensemakr(lm(Y ~ T + X1 + X2, d),
+      treatment = "T",
+      benchmark_covariates = "X1", kd = 1:3)
+plot(s)   # Cinelli–Hazlett contours
+```
+:::
+::::
+
+## Classical inference
+
+- **Asymptotic normality**: $\sqrt{n}(\hat\tau - \tau) \to N(0, V)$, with $V = \mathbb{V}(\psi)$ for efficient estimators.
+- **Sandwich variance** (Huber–White) for misspecified models.
+- **Bootstrap**: valid for smooth IPW/AIPW; not valid for nearest-neighbor matching with replacement.
+- **Confidence intervals** cover $\tau$ in $100(1-\alpha)\%$ of repeated samples. They do **not** give a probability for $\tau$ given your data.
+- **Randomization inference** (Fisher) for small samples.
+
+## What does "95% confidence" mean? {.smaller}
+
+:::: {.columns}
+::: {.column width="62%"}
+```{ojs}
+viewof ciDraw = Inputs.button("Draw 50 new samples")
+viewof ciLevel = Inputs.radio([0.80, 0.90, 0.95, 0.99], {value: 0.95, label: "Level", format: d => `${100 * d}%`})
+```
+
+```{ojs}
+ciRows = {
+  const rng = mulberry32(1000 + ciDraw), n = 25, z = qnorm(1 - (1 - ciLevel) / 2), rows = [];
+  for (let k = 0; k < 50; k++) {
+    let s = 0; for (let i = 0; i < n; i++) s += 2 + randn(rng);
+    const m = s / n, h = z / Math.sqrt(n);
+    rows.push({k, lo: m - h, hi: m + h, m, cubre: m - h <= 2 && 2 <= m + h});
+  }
+  return rows;
+}
+Plot.plot({
+  width: 700, height: 380, marginBottom: 44, x: {domain: [1, 3], label: "τ", grid: true, labelAnchor: "center", labelOffset: 36}, y: {axis: null},
+  color: {domain: [true, false], range: ["#14213d", "#d1495b"]},
+  marks: [
+    Plot.ruleX([2], {stroke: "#2e8b57", strokeWidth: 2}),
+    Plot.link(ciRows, {x1: "lo", x2: "hi", y1: "k", y2: "k", stroke: "cubre", strokeWidth: 2}),
+    Plot.dot(ciRows, {x: "m", y: "k", r: 2.5, fill: "cubre"})
+  ]
+})
+```
+:::
+::: {.column width="38%"}
+```{ojs}
+html`<div class="readout">Intervals covering τ = 2: <b>${ciRows.filter(d => d.cubre).length} of 50</b><br>(nominal: ${100 * ciLevel}%)</div>`
+```
+
+The probability belongs to the **procedure** over repeated sampling. Any single interval either covers $\tau$ or it does not; the failures are red.
+
+The question "how probable is $\tau > 0$ given *these* data?" is answered in the Bayesian section.
+:::
+::::
+
+# Bayesian Causal Inference {#inferencia-causal-bayesiana .section-title background-color="#14213d"}
+
+[Treat the missing counterfactual as uncertainty you can actually quantify.]{.section-subtitle}
+
+## Rubin's Bayesian perspective
+
+- Missing potential outcomes $Y_{\text{mis}}$ are treated as unknown quantities with a posterior distribution.
+- Model: $p(Y(0), Y(1), X, T) = p(Y(0), Y(1), X \mid \theta)\, p(T \mid Y(0), Y(1), X, \phi)$, with $\theta$ and $\phi$ independent a priori.
+- An estimand $\tau = \tau(Y(0), Y(1))$ inherits a posterior distribution:
+$$p(\tau \mid D) = \iint p(\tau \mid Y_{\text{obs}}, Y_{\text{mis}}, \theta)\, p(Y_{\text{mis}} \mid D, \theta)\, p(\theta \mid D)\, dY_{\text{mis}}\, d\theta.$$
+
+## Ignorability of the assignment mechanism
+
+::: {.block .theorem data-title="Theorem 16 (Rubin, 1978)"}
+If $p(T \mid Y(0), Y(1), X, \phi) = p(T \mid X, \phi)$ and $\theta \perp\!\!\!\perp \phi$ a priori, then the posterior for $\theta$ does not depend on $\phi$ or on the assignment model:
+$$p(\theta \mid X, Y_{\text{obs}}, T) \propto p(\theta) \int p(Y_{\text{obs}}, Y_{\text{mis}}, X \mid \theta)\, dY_{\text{mis}}.$$
+:::
+
+- When assignment is ignorable, you can infer $\theta$ without modeling $T$ at all.
+- Non-ignorability requires modeling $(Y, T)$ jointly with informative priors.
+
+## The Bayesian outcome model
+
+$$Y_i \mid T_i, X_i, \theta \sim N(\mu_{T_i}(X_i), \sigma^2), \qquad \mu_t(x) = \alpha_t + x^\top \beta_t.$$
+
+Priors: $\beta \sim N(\mu_0, \Sigma_0)$, $\sigma^2 \sim \text{Inv-}\chi^2$. With known $\sigma^2$:
+
+$$\beta \mid D \sim N(m, S), \quad S = \Big(\frac{X^\top X}{\sigma^2} + \Sigma_0^{-1}\Big)^{-1}, \quad m = S\Big(\frac{X^\top y}{\sigma^2} + \Sigma_0^{-1}\mu_0\Big).$$
+
+The posterior mean is a precision-weighted average of the prior and the least-squares estimate: shrinkage toward $\mu_0$.
+
+## The conjugate posterior in 3D {data-menu-title="Posterior 3D"}
+
+::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 500px"}
+:::
+
+[Model $y = \alpha + \tau T + \varepsilon$ with a prior $N(0, s_0^2 I)$. With **little data or a tight prior**, the posterior stays near $\mu_0 = 0$; with **more data**, it concentrates around OLS and the truth.]{.small .muted}
+
+## Bayesian g-computation
+
+For each posterior draw $\theta^{(s)} \sim p(\theta \mid D)$:
+
+1. Predict $\tilde Y_i(1)$ and $\tilde Y_i(0)$ for every unit from the posterior predictive distribution (or the conditional mean).
+2. Compute $\tau^{(s)} = \frac{1}{n} \sum_i \big[\tilde Y_i(1) - \tilde Y_i(0)\big]$ (sample ATE), or average over $p(x)$ (population ATE).
+
+The collection $\{\tau^{(s)}\}$ approximates $p(\tau \mid D)$. Summarize it with the mean, median, 95% credible interval, HPD region, and $\mathbb{P}(\tau > 0 \mid D)$.
+
+::: {.block .alert data-title="Key distinction"}
+The sample ATE includes uncertainty about $Y_{\text{mis}}$; the population ATE also includes uncertainty about the distribution of $X$.
+:::
+
+## In code: Bayesian g-computation
+
+::: {.panel-tabset}
+### R · brms
+
+```r
+library(brms)
+fit <- brm(Y ~ T * (X1 + X2), data = d, family = gaussian(),
+           prior = prior(normal(0, 5), class = "b"), chains = 4, cores = 4)
+
+mu1 <- posterior_epred(fit, newdata = transform(d, T = 1))   # S x n
+mu0 <- posterior_epred(fit, newdata = transform(d, T = 0))
+tau <- rowMeans(mu1 - mu0)                                   # draws from p(ATE | D)
+c(mean = mean(tau), quantile(tau, c(.025, .975)), P_pos = mean(tau > 0))
+```
+
+### Python · PyMC
+
+```python
+import numpy as np, pymc as pm
+
+with pm.Model():
+    a = pm.Normal("a", 0, 5); tau = pm.Normal("tau", 0, 5)
+    b = pm.Normal("b", 0, 5, shape=2); g = pm.Normal("g", 0, 5, shape=2)   # T × X
+    s = pm.HalfNormal("s", 2)
+    mu = a + tau * T + X @ b + T * (X @ g)
+    pm.Normal("y", mu, s, observed=Y)
+    idata = pm.sample()
+
+post = idata.posterior
+ate = post["tau"].values + post["g"].values @ X.mean(axis=0)   # sample ATE (conditional mean)
+print(ate.mean(), np.quantile(ate, [0.025, 0.975]), (ate > 0).mean())
+```
+
+### R base (conjugate)
+
+```r
+X  <- model.matrix(~ T * (X1 + X2), d);  S0 <- diag(25, ncol(X))
+s2 <- summary(lm(Y ~ T * (X1 + X2), d))$sigma^2
+S  <- solve(crossprod(X) / s2 + solve(S0));  m <- S %*% crossprod(X, Y) / s2
+B  <- matrix(rnorm(4000 * ncol(X)), 4000) %*% chol(S) + rep(1, 4000) %o% drop(m)
+D  <- colMeans(model.matrix(~ T * (X1 + X2), transform(d, T = 1)) -
+               model.matrix(~ T * (X1 + X2), transform(d, T = 0)))
+tau <- drop(B %*% D);  quantile(tau, c(.025, .5, .975))
+```
+:::
+
+[Complete, verified script in base R (comments in Spanish): [`code/inferencia_causal.R`](code/inferencia_causal.R).]{.code-note}
+
+## Priors and regularization
+
+- **Weakly informative priors**: $N(0, 5^2)$ on standardized coefficients.
+- **Shrinkage priors** for heterogeneity: horseshoe, Laplace, regularized horseshoe.
+- **Hierarchical priors**: $\tau_g \sim N(\tau, \sigma_\tau^2)$ for partial pooling across subgroups.
+- **Bias priors**: one bias parameter per unmeasured confounder, propagating that uncertainty into $\tau$.
+- Always run a prior sensitivity analysis and prior predictive checks.
+
+```r
+prior(horseshoe(df = 1, par_ratio = 0.1), class = "b")       # brms: shrinkage
+bf(Y ~ T + X1 + X2 + (1 + T | grupo))                          # partial pooling of tau_g
+brm(..., sample_prior = "only")                                # prior predictive
+```
+
+## Nonparametric models: BART
+
+$$f(t, x) = \sum_{j=1}^m g(t, x; \mathcal{T}_j, \mathcal{M}_j), \qquad Y = f(T, X) + \varepsilon, \ \varepsilon \sim N(0, \sigma^2)$$
+
+- A regularization prior on tree depth and leaf size keeps every tree weak.
+- $\tau(x) = f(1, x) - f(0, x)$, with a posterior over $\text{CATE}(x)$; Hill (2011).
+- Including the propensity score as a covariate helps under strong confounding (Hahn, Murray, and Carvalho: *BCF*).
+- Uncertainty stays honest when extrapolating outside common support: intervals widen.
+
+```r
+library(bartCause)
+fit <- bartc(response = Y, treatment = T, confounders = X1 + X2, data = d,
+             estimand = "ate", method.trt = "glm")   # ê(x) as a covariate
+summary(fit);  cate <- fitted(fit, type = "icate")  # posterior of CATE(x_i)
+```
+
+## Propensity score and feedback
+
+- A Bayesian estimate of $e(x)$ propagates its uncertainty into $\tau$.
+- **Feedback problem**: $Y$ contaminates the posterior for $e$ in a joint model; use a *cut* or a two-stage model.
+- Even though the likelihood does not depend on $e$ under ignorability, including $\hat e(X)$ as a covariate protects against outcome misspecification (Robins–Ritov).
+- A Bayesian IPW estimator uses a *Bayesian bootstrap* (Dirichlet weights).
+
+```r
+bb <- replicate(1000, {
+  g  <- rexp(nrow(d))                   # unnormalized Dirichlet(1, ..., 1) weights
+  e  <- fitted(glm(T ~ X1 + X2, quasibinomial, d, weights = g))  # refit ê(X)
+  a1 <- g * d$T / e; a0 <- g * (1 - d$T) / (1 - e)
+  sum(a1 * d$Y) / sum(a1) - sum(a0 * d$Y) / sum(a0)
+})
+quantile(bb, c(.025, .975))             # includes uncertainty about ê(X)
+```
+
+## Bayesian IV and DiD
+
+- **Bayesian IV**: joint model $T = \gamma_0 + \gamma_1 Z + \nu$, $Y = \alpha + \tau T + \varepsilon$ with $(\nu, \varepsilon) \sim N(0, \Sigma)$; posterior over $\tau$ and the error correlation. Priors soften weak-instrument problems.
+- **Bayesian DiD / structural time series**: counterfactual $\tilde Y_t(0)$ from a state-space model (CausalImpact, Brodersen et al.).
+- **Bayesian synthetic control**: weights with a Dirichlet prior.
+- **Heterogeneous effects**: hierarchical models across subgroups.
+
+```r
+library(CausalImpact)
+impact <- CausalImpact(serie, pre.period = c(1, 70), post.period = c(71, 100))
+summary(impact); plot(impact)
+```
+
+## Diagnostics and model checking
+
+- **MCMC convergence**: $\hat R < 1.01$, effective sample size $> 400$ per parameter, no NUTS divergences.
+- **Posterior predictive checks**: compare $y^{\text{rep}} \sim p(y \mid D)$ with the observed $y$.
+- **Cross-validation**: PSIS-LOO to compare specifications of $\mu_t$.
+- **Sensitivity**: vary the prior, the outcome specification, and the covariate set.
+- **Common support**: inspect overlap in $\hat e(x)$ across groups.
+
+```r
+library(posterior)
+summarise_draws(as_draws_df(fit), "rhat", "ess_bulk", "ess_tail")
+pp_check(fit, ndraws = 50)                           # posterior predictive check
+loo_compare(loo(fit), loo(fit_no_interactions))   # PSIS-LOO
+```
+
+## Decision-making with the causal posterior
+
+- $\mathbb{P}(\tau > 0 \mid D)$ and $\mathbb{P}(\tau > \delta \mid D)$ for a practically meaningful threshold $\delta$.
+- **ROPE**: region of practical equivalence $[-\delta, \delta]$; compare posterior mass inside and outside.
+- **Decision theory**: choose the action $a$ maximizing $\int U(a, \tau)\, p(\tau \mid D)\, d\tau$.
+- **Value of information**: expected cost of remaining uncertainty.
+- Bayesian **stopping rules** for adaptive trials, with no penalty for looking at the data.
+
+## Prior × likelihood → decision {.smaller}
+
+:::: {.columns}
+::: {.column width="36%"}
+```{ojs}
+viewof bm0 = Inputs.range([-2, 2], {value: 0, step: 0.05, label: "Prior mean"})
+viewof bs0 = Inputs.range([0.1, 3], {value: 1, step: 0.05, label: "Prior SD"})
+viewof bhat = Inputs.range([-1, 3], {value: 0.6, step: 0.05, label: "τ̂ (data)"})
+viewof bse = Inputs.range([0.05, 1.5], {value: 0.4, step: 0.05, label: "Standard error"})
+viewof bdelta = Inputs.range([0, 1], {value: 0.2, step: 0.05, label: "Threshold δ (ROPE)"})
+```
+
+```{ojs}
+bpost = {
+  const p = 1 / bs0 ** 2 + 1 / bse ** 2, m = (bm0 / bs0 ** 2 + bhat / bse ** 2) / p, s = Math.sqrt(1 / p);
+  return {m, s, pPos: 1 - pnorm(-m / s), pDelta: 1 - pnorm((bdelta - m) / s),
+          pRope: pnorm((bdelta - m) / s) - pnorm((-bdelta - m) / s),
+          lo: m - 1.96 * s, hi: m + 1.96 * s};
+}
+html`<div class="readout">
+  Posterior: N(<b>${bpost.m.toFixed(2)}</b>, ${bpost.s.toFixed(2)}²)<br>
+  95% credible interval: [${bpost.lo.toFixed(2)}, ${bpost.hi.toFixed(2)}]<br>
+  P(τ > 0 | D) = <b>${bpost.pPos.toFixed(3)}</b><br>
+  P(τ > δ | D) = <b>${bpost.pDelta.toFixed(3)}</b><br>
+  P(|τ| < δ | D) = <b>${bpost.pRope.toFixed(3)}</b> (ROPE)
+</div>`
+```
+:::
+::: {.column width="64%"}
+```{ojs}
+{
+  const xs = d3.range(-3, 4.001, 0.02);
+  const dens = (m, s) => xs.map(x => ({x, y: dnorm((x - m) / s) / s}));
+  const curves = [
+    ...dens(bm0, bs0).map(d => ({...d, curva: "Prior"})),
+    ...dens(bhat, bse).map(d => ({...d, curva: "Likelihood"})),
+    ...dens(bpost.m, bpost.s).map(d => ({...d, curva: "Posterior"}))
+  ];
+  const post = dens(bpost.m, bpost.s);
+  return Plot.plot({
+    width: 760, height: 430, grid: true,
+    marginBottom: 44, x: {label: "τ", labelAnchor: "center", labelOffset: 36}, y: {label: "density"},
+    color: {domain: ["Prior", "Likelihood", "Posterior"], range: ["#6f8fcf", "#9aa3b5", "#c8742b"], legend: true},
+    marks: [
+      Plot.rectX([{a: -bdelta, b: bdelta}], {x1: "a", x2: "b", fill: "#2e8b57", fillOpacity: 0.12}),
+      Plot.areaY(post.filter(d => d.x >= bdelta), {x: "x", y: "y", fill: "#c8742b", fillOpacity: 0.3}),
+      Plot.line(curves, {x: "x", y: "y", stroke: "curva", strokeWidth: d => 2}),
+      Plot.ruleX([0], {stroke: "#555"}),
+      Plot.ruleY([0])
+    ]
+  });
+}
+```
+[Green band: the ROPE $[-\delta, \delta]$. Orange area: $\mathbb{P}(\tau > \delta \mid D)$.]{.tiny}
+:::
+::::
+
+# Comparison and Takeaways {#comparación-y-cierre .section-title background-color="#14213d"}
+
+[Method is a tool; the question is the boss.]{.section-subtitle}
+
+## Classical versus Bayesian
+
+| Aspect | Classical | Bayesian |
+|:--------|:--------|:----------|
+| Parameter | Fixed and unknown | Random variable |
+| Counterfactual | Missing data, not modeled | Imputed from the predictive |
+| Uncertainty | Sampling distribution | Posterior distribution |
+| Interval | Confidence | Credible |
+| Prior information | Not formal | Explicit priors |
+| Small samples | Asymptotic results | Exact inference given the model |
+| Robustness | Double robustness, efficiency | Depends on model and prior |
+
+## Identification versus estimation
+
+- Identification is a *population* question: can the estimand be written as a functional of $P(\text{observable})$?
+- Estimation and inference are *sample* questions: how do we estimate that functional and quantify uncertainty?
+- Priors and regularization control variance; they [do not]{.hl} fix a lack of identification.
+- In partially identified settings the posterior never collapses to a point: it converges to the identified set, and the prior keeps mattering asymptotically.
+
+## A workflow you can reuse
+
+1. Write down the question, the estimand, and the target population.
+2. Draw the DAG and justify the adjustment set using substantive knowledge.
+3. Check positivity and overlap — look at the data, not just the theory.
+4. Estimate with several methods (regression, IPW, AIPW/DML, Bayesian).
+5. Examine balance, diagnostics, and specification.
+6. Quantify sensitivity to unmeasured confounding.
+7. Report effects with uncertainty **and** explicit assumptions.
+
+## Conclusions
+
+- Causality is defined with potential outcomes or SCMs; identification rests on assumptions.
+- The right adjustment comes from the graph, not from throwing in every covariate.
+- AIPW/DML give efficiency and double robustness; Bayesian methods deliver full posterior distributions and handle uncertainty naturally.
+- Sensitivity analysis is part of the analysis, not an appendix.
+
+[The three opening questions are now answered by one toolkit: draw the graph, choose the comparison, interrogate the assumptions.]{.small .muted}
+
+The R script for this edition ([`code/inferencia_causal.R`](code/inferencia_causal.R)) implements OLS/FWL, g-computation, IPW, AIPW, matching, Bayesian g-computation, and a Bayesian bootstrap on simulated data (comments in Spanish). Run it yourself — learning by breaking things is the fastest route to intuition.
+
+## References I {.smaller}
+
+- Rubin, D. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. *J. Educ. Psych.*
+- Rubin, D. (1978). Bayesian inference for causal effects. *Ann. Stat.*
+- Rosenbaum, P. and Rubin, D. (1983). The central role of the propensity score. *Biometrika*.
+- Pearl, J. (2009). *Causality*, 2nd ed. Cambridge UP.
+- Imbens, G. and Rubin, D. (2015). *Causal Inference for Statistics, Social, and Biomedical Sciences*. Cambridge UP.
+- Hernán, M. and Robins, J. (2020). *Causal Inference: What If*. CRC Press.
+- Imbens, G. and Angrist, J. (1994). Identification and estimation of local average treatment effects. *Econometrica*.
+- Robins, J., Rotnitzky, A. and Zhao, L. (1994). Estimation of regression coefficients when some regressors are not always observed. *JASA*.
+
+## References II {.smaller}
+
+- Chernozhukov, V. et al. (2018). Double/debiased machine learning. *Econometrics J.*
+- Hill, J. (2011). Bayesian nonparametric modeling for causal inference. *JCGS*.
+- Hahn, P., Murray, J. and Carvalho, C. (2020). Bayesian regression tree models for causal inference. *Bayesian Analysis*.
+- Shpitser, I. and Pearl, J. (2006). Identification of joint interventional distributions in recursive semi-Markovian causal models. *AAAI*.
+- VanderWeele, T. and Ding, P. (2017). Sensitivity analysis in observational research: introducing the E-value. *Ann. Intern. Med.*
+- Wager, S. and Athey, S. (2018). Estimation and inference of heterogeneous treatment effects using random forests. *JASA*.
+
+```{ojs}
+//| output: false
+labGammaD = debounce(viewof labGamma)
+labND = debounce(viewof labN)
+mulberry32 = (seed) => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+randn = (rng) => { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+expit = (x) => 1 / (1 + Math.exp(-x))
+dnorm = (z) => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI)
+pnorm = (z) => {
+  // Abramowitz–Stegun 26.2.17
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const p = dnorm(z) * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return z >= 0 ? 1 - p : p;
+}
+qnorm = (p) => {
+  let lo = -10, hi = 10;
+  for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (pnorm(mid) < p) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+solveLin = (A, b) => {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((r, i) => r[n] / r[i]);
+}
+olsFit = (X, y, w) => {
+  const p = X[0].length, A = Array.from({length: p}, () => new Array(p).fill(0)), b = new Array(p).fill(0);
+  X.forEach((x, i) => { const wi = w ? w[i] : 1; for (let j = 0; j < p; j++) { b[j] += wi * x[j] * y[i]; for (let k = 0; k < p; k++) A[j][k] += wi * x[j] * x[k]; } });
+  return solveLin(A, b);
+}
+logitFit = (X, y) => {
+  let beta = new Array(X[0].length).fill(0);
+  for (let it = 0; it < 10; it++) {
+    const w = [], z = [];
+    X.forEach((x, i) => {
+      const eta = x.reduce((s, v, k) => s + v * beta[k], 0), mu = Math.min(1 - 1e-6, Math.max(1e-6, expit(eta))), wi = mu * (1 - mu);
+      w.push(wi); z.push(eta + (y[i] - mu) / wi);
+    });
+    const next = olsFit(X, z, w);
+    const delta = next.reduce((m, v, k) => Math.max(m, Math.abs(v - beta[k])), 0);
+    beta = next;
+    if (delta < 1e-6) break;
+  }
+  return beta;
+}
+// Emit an input's value at most once every `delay` ms (avoids recomputing on every slider pixel)
+debounce = (input, delay = 250) => Generators.observe(notify => {
+  let timer = null, value;
+  const inputted = () => {
+    if (timer !== null) return;
+    notify(value = input.value);
+    timer = setTimeout(delayed, delay);
+  };
+  const delayed = () => { timer = null; if (value !== input.value) notify(value = input.value); };
+  input.addEventListener("input", inputted);
+  inputted();
+  return () => input.removeEventListener("input", inputted);
+})
+```

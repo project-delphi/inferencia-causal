@@ -2,9 +2,10 @@
 
 Versión interactiva en [Quarto](https://quarto.org) / reveal.js de la presentación
 **«Inferencia causal clásica y bayesiana: identificación, estimación e incertidumbre»**
-de **Jhonier Rangel** (14 de noviembre de 2026).
+de **Jhonier Rangel y Ravi Kalia, PhD** (14 de noviembre de 2026).
 
 **Presentación en vivo:** https://project-delphi.github.io/inferencia-causal/
+**English edition:** [`index.en.qmd`](index.en.qmd) → https://project-delphi.github.io/inferencia-causal/index.en.html
 
 ## Qué incluye
 
