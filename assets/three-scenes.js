@@ -1,6 +1,6 @@
-// Escenas 3D (three.js) para la presentación.
-// Cada escena se inicializa de forma perezosa la primera vez que su diapositiva
-// está visible y sólo se renderiza mientras la diapositiva está presente.
+// 3D scenes (three.js) for the presentation.
+// Each scene is initialized lazily the first time its slide becomes
+// visible, and only renders while that slide is present.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -18,7 +18,7 @@ const C = {
   purple: 0xb48cff,
 };
 
-// ---------- utilidades ----------
+// ---------- utilities ----------
 function mulberry32(seed) {
   let a = seed >>> 0;
   return () => {
@@ -43,7 +43,7 @@ function makeRenderer(el) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setClearColor(0x000000, 0);
   el.prepend(renderer.domElement);
-  el._threeRenderer = renderer; // para poder liberarlo si la fábrica falla a medias
+  el._threeRenderer = renderer; // so it can be released if the factory fails halfway
   return renderer;
 }
 
@@ -117,7 +117,7 @@ function hint(el, text) {
   el.appendChild(div);
 }
 
-// ---------- Escena 1: red causal de portada ----------
+// ---------- Scene 1: cover causal network ----------
 function heroScene(el) {
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -133,7 +133,7 @@ function heroScene(el) {
   const N = 70;
   const pts = [];
   for (let i = 0; i < N; i++) {
-    // capas a lo largo de x para sugerir un orden causal (DAG)
+    // layers along x to suggest a causal ordering (DAG)
     const x = -6 + (12 * i) / (N - 1) + randn(rng) * 0.4;
     const r = 3.2 * Math.sqrt(rng());
     const th = 2 * Math.PI * rng();
@@ -147,7 +147,7 @@ function heroScene(el) {
     group.add(m);
   });
 
-  // aristas: cada nodo apunta a 2 vecinos cercanos posteriores (aciclicidad)
+  // edges: each node points to 2 nearby later nodes (acyclicity)
   const edges = [];
   for (let i = 0; i < N; i++) {
     const cand = [];
@@ -163,7 +163,7 @@ function heroScene(el) {
   lg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x8fb4ff, transparent: true, opacity: 0.28 })));
 
-  // pulsos viajando por las aristas: "flujo causal"
+  // pulses traveling along edges: "causal flow"
   const P = 60;
   const pulseGeo = new THREE.SphereGeometry(0.06, 10, 10);
   const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffd2a0 });
@@ -192,7 +192,7 @@ function heroScene(el) {
       for (const p of pulses) {
         p.t += dt * p.v;
         if (p.t > 1) {
-          // continúa por una arista que sale del nodo de llegada, si existe
+          // continue along an edge leaving the arrival node, if one exists
           const nxt = edges.filter((e) => e[0] === p.e[1]);
           p.e = nxt.length ? nxt[Math.floor(rng() * nxt.length)] : edges[Math.floor(rng() * edges.length)];
           p.t = 0;
@@ -203,7 +203,7 @@ function heroScene(el) {
   };
 }
 
-// ---------- Escena 2: DAG con cirugía do(T) ----------
+// ---------- Scene 2: DAG with do(T) surgery ----------
 function dagScene(el) {
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -212,7 +212,7 @@ function dagScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 0.1, 0);
-  controls.saveState(); // «Reiniciar» vuelve a este encuadre
+  controls.saveState(); // Reset returns to this framing
   addLights(scene);
 
   const P = {
@@ -264,7 +264,7 @@ function dagScene(el) {
     edges[a + b] = ar;
   }
 
-  // pulsos
+  // pulses
   const pulseGeo = new THREE.SphereGeometry(0.09, 12, 12);
   const pulses = [];
   for (const key of Object.keys(edges)) {
@@ -332,7 +332,7 @@ function dagScene(el) {
     update();
   });
 
-  // clic sobre nodos
+  // clicking nodes
   const ray = new THREE.Raycaster();
   let down = null;
   renderer.domElement.addEventListener('pointerdown', (ev) => { down = [ev.clientX, ev.clientY]; });
@@ -369,7 +369,7 @@ function dagScene(el) {
   };
 }
 
-// ---------- Escena 3: superficie del puntaje de propensión ----------
+// ---------- Scene 3: propensity score surface ----------
 function propensityScene(el) {
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -378,12 +378,12 @@ function propensityScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 1.3, 0);
-  controls.saveState(); // «Reiniciar» vuelve a este encuadre
+  controls.saveState(); // Reset returns to this framing
   addLights(scene);
 
-  const K = 1.6;   // escala de X a coordenadas del mundo
-  const H = 3.2;   // altura para e(x) = 1
-  const R = 2.5;   // dominio [-R, R]
+  const K = 1.6;   // scale X into world coordinates
+  const H = 3.2;   // height at e(x) = 1
+  const R = 2.5;   // domain [-R, R]
   const SEG = 60;
 
   const grid = new THREE.GridHelper(2 * R * K, 10, 0x40507a, 0x2a3658);
@@ -465,7 +465,7 @@ function propensityScene(el) {
       <div>${tr('Max IPW weight', 'Peso IPW máximo')}: <b>${wmax.toFixed(1)}</b></div>
       <div>${tr('Effective sample size', 'Tamaño muestral efectivo')}: <b>${ess.toFixed(0)}</b> ${tr('of', 'de')} ${n}</div>
       <div>${tr('Units with', 'Unidades con')} e(x) &lt; 0.05 ${tr('or', 'o')} &gt; 0.95: <b class="${extreme > 30 ? 'bad' : 'ok'}">${extreme}</b></div>
-      <div style="margin-top:6px">${S.gamma > 2.5 ? `<span class="bad">${tr('Positivity nearly violated', 'Positividad casi violada')}:</span> ${tr('a few weights dominate the estimator.', 'pocos pesos dominan el estimador.')}` : tr('Good overlap: weights are moderate.', 'Buen solapamiento: los pesos son moderados.')}</div>`;
+      <div style="margin-top:6px">${S.gamma > 2.5 ? `<span class="bad">${tr('Positivity nearly violated', 'Positividad casi violada')}:</span> ${tr('a few weights dominate the estimator.', 'pocos pesos dominan el estimador.')}` : (wmax > 10 || extreme > 5) ? `<span class="bad">${tr('Overlap is weakening', 'El solapamiento se debilita')}:</span> ${tr('a few weights are already large — watch the effective sample size.', 'unos pocos pesos ya son grandes — vigila el tamaño muestral efectivo.')}` : tr('Good overlap: weights are moderate.', 'Buen solapamiento: los pesos son moderados.')}</div>`;
   }
   slider.addEventListener('input', () => { S.gamma = +slider.value; update(); });
   ui.querySelector('button').addEventListener('click', () => { S.w = !S.w; update(); });
@@ -474,7 +474,7 @@ function propensityScene(el) {
   return { renderer, scene, camera, controls, tick() {} };
 }
 
-// ---------- Escena 4: posterior bayesiana conjugada ----------
+// ---------- Scene 4: conjugate Bayesian posterior ----------
 function bayesScene(el) {
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -483,10 +483,10 @@ function bayesScene(el) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 1, 0);
-  controls.saveState(); // «Reiniciar» vuelve a este encuadre
+  controls.saveState(); // Reset returns to this framing
   addLights(scene);
 
-  // Datos: y = 1 + 2 T + e, sigma = 1, diseño balanceado
+  // Data: y = 1 + 2 T + e, sigma = 1, balanced design
   const rng = mulberry32(11);
   const NMAX = 500;
   const D = Array.from({ length: NMAX }, (_, i) => {
@@ -494,9 +494,9 @@ function bayesScene(el) {
     return { T, y: 1 + 2 * T + randn(rng) };
   });
   const truth = [1, 2];
-  const ctr = [1, 1.2]; // centro de la vista (alfa, tau)
+  const ctr = [1, 1.2]; // view center (alpha, tau)
   const K = 1.7, H = 3, SEG = 70;
-  const span = 2.4;     // +- en unidades de parámetro
+  const span = 2.4;     // +/- in parameter units
   const toW = (a, t) => [(a - ctr[0]) * K, (t - ctr[1]) * K];
 
   scene.add(new THREE.GridHelper(2 * span * K, 12, 0x40507a, 0x2a3658));
@@ -555,7 +555,7 @@ function bayesScene(el) {
     const s0 = Math.pow(10, +ui.querySelector('[data-k=s]').value);
     ui.querySelector('.nv').textContent = n;
     ui.querySelector('.sv').textContent = s0.toFixed(2);
-    // X'X y X'y con X = [1, T]
+    // X'X and X'y with X = [1, T]
     let n1 = 0, sy = 0, sty = 0;
     for (let i = 0; i < n; i++) { n1 += D[i].T; sy += D[i].y; sty += D[i].T * D[i].y; }
     const XtX = [n, n1, n1, n1];
@@ -567,7 +567,7 @@ function bayesScene(el) {
     const ols = mul2v(inv2(XtX), Xty);
     const detPost = Ppost[0] * Ppost[3] - Ppost[1] * Ppost[2];
     const detPrior = P0[0] * P0[3];
-    const ratio = Math.sqrt(detPrior / detPost); // densidad prior / pico posterior
+    const ratio = Math.sqrt(detPrior / detPost); // prior density / posterior peak
 
     const pp = gPost.attributes.position, pr = gPrior.attributes.position;
     for (let i = 0; i < pp.count; i++) {
@@ -588,12 +588,19 @@ function bayesScene(el) {
     placePillar(pPost, m[0], m[1], H + 0.95);
     placePillar(pTrue, truth[0], truth[1], 0.9);
     const sdTau = Math.sqrt(S[3]);
-    const shrink = 1 - m[1] / ols[1];
+    // Relative shrinkage is undefined when the OLS effect is essentially zero.
+    const hasOlsSignal = Math.abs(ols[1]) > 1e-3;
+    const shrink = hasOlsSignal ? 1 - m[1] / ols[1] : 0;
+    const verdict = !hasOlsSignal
+      ? tr('The data carry little signal about the effect, so the posterior mostly reflects the prior.', 'Los datos aportan poca señal sobre el efecto, así que la posterior refleja sobre todo el prior.')
+      : shrink > 0.25
+        ? tr('Strong prior or little data: the posterior stays near μ₀.', 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.')
+        : tr('Data dominate: the posterior moves toward OLS and tightens.', 'Los datos dominan: la posterior se acerca a MCO y se concentra.');
     status.innerHTML = `
       <div>β | D ~ N(m, S), σ² = 1, μ₀ = 0, Σ₀ = ${s0.toFixed(2)}² I</div>
       <div>τ̂<sub>${tr('OLS', 'MCO')}</sub> = <b>${ols[1].toFixed(2)}</b> · E(τ | D) = <b>${m[1].toFixed(2)}</b> · sd(τ | D) = <b>${sdTau.toFixed(2)}</b></div>
-      <div>${tr('Shrinkage toward', 'Contracción hacia')} μ₀: <b>${(100 * shrink).toFixed(0)}%</b></div>
-      <div style="margin-top:6px">${shrink > 0.25 ? tr('Strong prior or little data: the posterior stays near μ₀.', 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.') : tr('Data dominate: the posterior moves toward OLS and tightens.', 'Los datos dominan: la posterior se acerca a MCO y se concentra.')}</div>`;
+      <div>${tr('Shrinkage toward', 'Contracción hacia')} μ₀: <b>${hasOlsSignal ? (100 * shrink).toFixed(0) + '%' : 'n/a'}</b></div>
+      <div style="margin-top:6px">${verdict}</div>`;
   }
   ui.addEventListener('input', update);
   update();
@@ -601,7 +608,7 @@ function bayesScene(el) {
   return { renderer, scene, camera, controls, tick() {} };
 }
 
-// ---------- registro y bucle ----------
+// ---------- registration and loop ----------
 const FACTORIES = { hero: heroScene, dag: dagScene, propensity: propensityScene, bayes: bayesScene };
 const items = [];
 document.querySelectorAll('[data-three]').forEach((el) => {
@@ -609,8 +616,8 @@ document.querySelectorAll('[data-three]').forEach((el) => {
   if (f) items.push({ el, f, inst: null, failed: false, w: 0, h: 0, pr: 0 });
 });
 
-// En modo impresión/PDF (?print-pdf) ninguna diapositiva lleva la clase
-// `present`, así que se renderizan todas para que el PDF no salga en blanco.
+// In print/PDF mode (?print-pdf) no slide has the `present` class,
+// so render them all to avoid a blank PDF.
 const isPrinting = () => document.documentElement.classList.contains('print-pdf') ||
   !!window.Reveal?.isPrintingPDF?.();
 const isPresent = (el) => {
@@ -622,7 +629,7 @@ const isPresent = (el) => {
 function fail(it, err) {
   console.error('[three]', err);
   it.failed = true;
-  // Liberar el contexto WebGL y los controles (también si la fábrica falló a medias)
+  // Release the WebGL context and controls (also if the factory failed halfway)
   try { it.inst?.controls?.dispose(); } catch {}
   const r = it.inst?.renderer || it.el._threeRenderer;
   if (r) { try { r.dispose(); r.forceContextLoss(); } catch {} }
@@ -661,7 +668,7 @@ function loop() {
       controls?.update();
       renderer.render(scene, camera);
     } catch (err) {
-      // Un fallo en una escena no debe detener el resto del bucle
+      // A failure in one scene must not stop the rest of the loop
       fail(it, err);
     }
   }

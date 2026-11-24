@@ -335,7 +335,7 @@ Un SCM es $M = \langle U, V, F, P(U) \rangle$ con variables endógenas $V$, exó
 
 ## Cirugía del grafo en 3D {data-menu-title="DAG 3D"}
 
-::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Pulsa **do(T)** para borrar las flechas que entran en $T$; **ajustar** pone un anillo sobre el nodo condicionado. Los pulsos naranjas son caminos no causales abiertos; los verdes, el efecto causal.]{.small .muted}
@@ -414,7 +414,7 @@ Plot.plot({
   const col = estructura.startsWith("Col");
   return html`<div class="readout">
     corr(A, C) marginal: <b>${all.toFixed(2)}</b><br>
-    corr(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
+    corr hipotética(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
     ${col ? "En un <b>colisionador</b>, A y C son independientes, pero condicionar en B <b>abre</b> el camino: aparece una correlación espuria."
           : "En una cadena o bifurcación, A y C están asociados, pero condicionar en B <b>bloquea</b> el camino."}
   </div>`;
@@ -564,7 +564,7 @@ El puntaje balanceador reduce la dimensión de $X$ a un escalar: $X \perp\!\!\!\
 
 ## La superficie $e(x)$ en 3D {data-menu-title="Propensión 3D"}
 
-::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Sube la **confusión γ**: la superficie se vuelve un escalón, los grupos dejan de solaparse y unos pocos pesos IPW $1/\hat e$ dominan. Es la positividad en acción.]{.small .muted}
@@ -662,7 +662,7 @@ viewof labBadMu = Inputs.toggle({label: "μ̂(X) mal especificado (omite X₂)",
 
 ```{ojs}
 html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d.metodo}: sesgo <b>${d.sesgo.toFixed(2)}</b>, DE ${d.de.toFixed(2)}</div>`).join("")}
-<div style="margin-top:6px">${labBadE && labBadMu ? "Ambos modelos fallan: ni siquiera AIPW se salva." : (labBadE || labBadMu) ? "Un modelo falla, pero <b>AIPW</b> sigue centrado en 2: doble robustez." : "Todo bien especificado: los tres ajustes funcionan; AIPW tiene varianza baja."}</div></div>`
+<div style="margin-top:6px">${labGamma < 0.2 ? "Poca o ninguna confusión: la asignación es casi aleatoria, así que hasta los modelos mal especificados aciertan." : labBadE && labBadMu ? "Ambos modelos fallan: ni siquiera AIPW se salva ahora." : (labBadE || labBadMu) ? "Un modelo falla, pero <b>AIPW</b> sigue centrado en 2: doble robustez." : "Todo bien especificado: los tres ajustes funcionan; AIPW tiene varianza baja."}</div></div>`
 ```
 :::
 ::: {.column width="60%"}
@@ -718,7 +718,7 @@ Plot.plot({
 ## Aprendizaje automático y doble desviación {.smaller}
 
 - Función de influencia eficiente del ATE: $\psi = \mu_1 - \mu_0 + \frac{T(Y - \mu_1)}{e} - \frac{(1-T)(Y - \mu_0)}{1-e} - \tau$; su varianza es la cota semiparamétrica de eficiencia.
-- **DML** (Chernozhukov et al., 2018): estimación de $\mu_t, e$ con ML y *cross-fitting*; ortogonalidad de Neyman da $\sqrt{n}$-consistencia si los errores de los *nuisance* son $o_p(n^{-1/4})$ en producto.
+- **DML** (Chernozhukov et al., 2018): estimación de $\mu_t, e$ con ML y *cross-fitting*; ortogonalidad de Neyman da $\sqrt{n}$-consistencia si los errores de los *nuisance* son $o_p(n^{-1/2})$ en producto.
 - **TMLE** (van der Laan): paso de actualización dirigida que preserva cotas del resultado.
 - **Bosques causales** (Wager–Athey): estimación de $\text{CATE}(x)$ con inferencia asintótica.
 
@@ -983,7 +983,7 @@ La media posterior es un promedio ponderado por precisión entre el prior y el e
 
 ## La posterior conjugada en 3D {data-menu-title="Posterior 3D"}
 
-::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Modelo $y = \alpha + \tau T + \varepsilon$ con prior $N(0, s_0^2 I)$. Con **pocos datos o prior estrecho**, la posterior se queda cerca de $\mu_0 = 0$; con **más datos**, se concentra en torno a MCO y a la verdad.]{.small .muted}

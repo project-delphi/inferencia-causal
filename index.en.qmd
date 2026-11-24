@@ -56,7 +56,7 @@ execute:
 . . .
 
 ::: {.readout}
-This edition includes **live simulations** (sliders), **rotatable 3D scenes**, and **code in R and Python**. Everything runs in your browser. The complete, verified script is [`code/inferencia_causal.R`](code/inferencia_causal.R); the original Spanish PDF is in [`original/`](original/Inferencia_causal_clasica_y_bayesiana.pdf).
+This edition includes **live simulations** (sliders), **rotatable 3D scenes**, and **code in R and Python**. Everything runs in your browser. The complete, verified R script is [`code/inferencia_causal.R`](code/inferencia_causal.R) (comments in Spanish); the original Spanish PDF is in [`original/`](original/Inferencia_causal_clasica_y_bayesiana.pdf).
 :::
 
 ## Why should you care? {.smaller data-menu-title="Motivation"}
@@ -372,7 +372,7 @@ An SCM is $M = \langle U, V, F, P(U) \rangle$ with endogenous variables $V$, exo
 
 ## Graph surgery in 3D {data-menu-title="DAG 3D"}
 
-::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Press **do(T)** to erase arrows entering $T$; **adjust** puts a ring on the conditioned node. Orange pulses are open non-causal paths; green is the causal effect. Drag to rotate, click a node, and watch what opens and closes.]{.small .muted}
@@ -451,7 +451,7 @@ Plot.plot({
   const col = estructura.startsWith("Coll");
   return html`<div class="readout">
     Marginal corr(A, C): <b>${all.toFixed(2)}</b><br>
-    corr(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
+    Hypothetical corr(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
     ${col ? "In a <b>collider</b>, A and C are independent — but conditioning on B <b>opens</b> the path and creates a spurious correlation."
           : "In a chain or fork, A and C are associated, but conditioning on B <b>blocks</b> the path."}
   </div>`;
@@ -488,6 +488,8 @@ $$P(y \mid \operatorname{do}(t)) = \sum_z P(y \mid t, z)\, P(z).$$
 :::
 
 This is equivalent to conditional ignorability given $Z$, and it justifies regression, IPW, and matching.
+
+[Back to the hospital: "were they already sicker?" is exactly the backdoor $T \leftarrow X \to Y$ this criterion closes.]{.small .muted}
 
 ## The frontdoor criterion
 
@@ -568,7 +570,7 @@ Counterfactuals are identifiable only with extra assumptions about $f$ (e.g. mon
 
 # Classical Estimation {#estimación-clásica .section-title background-color="#14213d"}
 
-[Four tools, one goal: recover a comparison that nature did not hand us.]{.section-subtitle}
+[Many tools, one goal: recover a comparison that nature did not hand us.]{.section-subtitle}
 
 ## Regression and the Frisch–Waugh–Lovell theorem
 
@@ -603,7 +605,7 @@ The balancing score collapses many covariates into one number: $X \perp\!\!\!\pe
 
 ## The propensity surface $e(x)$ in 3D {data-menu-title="Propensity 3D"}
 
-::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Raise **confounding γ**: the surface turns into a step, the groups stop overlapping, and a handful of IPW weights $1/\hat e$ dominate. This is positivity in action — and the moment estimation becomes fragile.]{.small .muted}
@@ -701,7 +703,7 @@ viewof labBadMu = Inputs.toggle({label: "μ̂(X) misspecified (omits X₂)", val
 
 ```{ojs}
 html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d.metodo}: bias <b>${d.sesgo.toFixed(2)}</b>, SD ${d.de.toFixed(2)}</div>`).join("")}
-<div style="margin-top:6px">${labBadE && labBadMu ? "Both models are wrong: even AIPW cannot save us." : (labBadE || labBadMu) ? "One model is wrong, but <b>AIPW</b> stays centered at 2 — that is double robustness." : "All models correct: every adjustment works, and AIPW has the smallest spread."}</div></div>`
+<div style="margin-top:6px">${labGamma < 0.2 ? "Little or no confounding: assignment is nearly random, so even misspecified models land on 2." : labBadE && labBadMu ? "Both models are wrong: even AIPW cannot save us now." : (labBadE || labBadMu) ? "One model is wrong, but <b>AIPW</b> stays centered at 2 — that is double robustness." : "All models correct: every adjustment works, and AIPW has the smallest spread."}</div></div>`
 ```
 :::
 ::: {.column width="60%"}
@@ -929,7 +931,7 @@ viewof rrObs = Inputs.range([1.05, 5], {value: 2, step: 0.05, label: "Observed R
 ```
 :::
 ::: {.column width="45%"}
-[The shaded region contains confounders strong enough to explain away the entire observed effect.]{.small}
+[The shaded region contains confounders strong enough to explain away the entire observed effect. Back to the cameras: the E-value asks how strong the underlying crime trend would have to be.]{.small}
 
 ```r
 library(EValue); library(sensemakr)
@@ -987,7 +989,7 @@ html`<div class="readout">Intervals covering τ = 2: <b>${ciRows.filter(d => d.c
 
 The probability belongs to the **procedure** over repeated sampling. Any single interval either covers $\tau$ or it does not; the failures are red.
 
-The question "how probable is $\tau > 0$ given *these* data?" is Bayesian →
+The question "how probable is $\tau > 0$ given *these* data?" is answered in the Bayesian section.
 :::
 ::::
 
@@ -1024,7 +1026,7 @@ The posterior mean is a precision-weighted average of the prior and the least-sq
 
 ## The conjugate posterior in 3D {data-menu-title="Posterior 3D"}
 
-::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 560px"}
+::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 500px"}
 :::
 
 [Model $y = \alpha + \tau T + \varepsilon$ with a prior $N(0, s_0^2 I)$. With **little data or a tight prior**, the posterior stays near $\mu_0 = 0$; with **more data**, it concentrates around OLS and the truth.]{.small .muted}
@@ -1089,7 +1091,7 @@ tau <- drop(B %*% D);  quantile(tau, c(.025, .5, .975))
 ```
 :::
 
-[Complete, verified script in base R: [`code/inferencia_causal.R`](code/inferencia_causal.R).]{.code-note}
+[Complete, verified script in base R (comments in Spanish): [`code/inferencia_causal.R`](code/inferencia_causal.R).]{.code-note}
 
 ## Priors and regularization
 
@@ -1271,7 +1273,9 @@ html`<div class="readout">
 - AIPW/DML give efficiency and double robustness; Bayesian methods deliver full posterior distributions and handle uncertainty naturally.
 - Sensitivity analysis is part of the analysis, not an appendix.
 
-The R script for this edition ([`code/inferencia_causal.R`](code/inferencia_causal.R)) implements OLS/FWL, g-computation, IPW, AIPW, matching, Bayesian g-computation, and a Bayesian bootstrap on simulated data. Run it yourself — learning by breaking things is the fastest route to intuition.
+[The three opening questions are now answered by one toolkit: draw the graph, choose the comparison, interrogate the assumptions.]{.small .muted}
+
+The R script for this edition ([`code/inferencia_causal.R`](code/inferencia_causal.R)) implements OLS/FWL, g-computation, IPW, AIPW, matching, Bayesian g-computation, and a Bayesian bootstrap on simulated data (comments in Spanish). Run it yourself — learning by breaking things is the fastest route to intuition.
 
 ## References I {.smaller}
 
