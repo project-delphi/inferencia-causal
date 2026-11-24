@@ -546,7 +546,7 @@ $\hat\tau$ coincide con la pendiente de regresar $\tilde Y = Y - \hat Y(X)$ sobr
 ry <- resid(lm(Y ~ X1 + X2, d)); rt <- resid(lm(T ~ X1 + X2, d))
 all.equal(unname(coef(lm(ry ~ rt))[2]),                     # TRUE: FWL
           unname(coef(lm(Y ~ T + X1 + X2, d))["T"]))
-fit <- lm(Y ~ T * (X1 + X2))                              # g-computación
+fit <- lm(Y ~ T * (X1 + X2), d)                           # g-computación
 mean(predict(fit, transform(d, T = 1)) - predict(fit, transform(d, T = 0)))
 ```
 

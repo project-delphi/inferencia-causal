@@ -39,6 +39,7 @@ function makeRenderer(el) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setClearColor(0x000000, 0);
   el.prepend(renderer.domElement);
+  el._threeRenderer = renderer; // para poder liberarlo si la fábrica falla a medias
   return renderer;
 }
 
@@ -611,6 +612,12 @@ const isPresent = (el) => {
 function fail(it, err) {
   console.error('[three]', err);
   it.failed = true;
+  // Liberar el contexto WebGL y los controles (también si la fábrica falló a medias)
+  try { it.inst?.controls?.dispose(); } catch {}
+  const r = it.inst?.renderer || it.el._threeRenderer;
+  if (r) { try { r.dispose(); r.forceContextLoss(); } catch {} }
+  it.inst = null;
+  it.el._threeRenderer = null;
   it.el.querySelectorAll('canvas, .overlay, .status, .hint').forEach((n) => n.remove());
   const msg = document.createElement('div');
   msg.className = 'three-error';
@@ -625,26 +632,26 @@ function loop() {
   const t = clock.elapsedTime;
   for (const it of items) {
     if (it.failed || !isPresent(it.el)) continue;
-    if (!it.inst) {
-      try { it.inst = it.f(it.el); } catch (err) { fail(it, err); continue; }
-    }
-    const { renderer, camera, scene, controls } = it.inst;
-    const w = it.el.clientWidth, h = it.el.clientHeight;
-    const pr = Math.min(2.5, (window.devicePixelRatio || 1) * revealScale());
-    if (w !== it.w || h !== it.h || Math.abs(pr - it.pr) > 0.01) {
-      it.w = w; it.h = h; it.pr = pr;
-      renderer.setPixelRatio(pr);
-      renderer.setSize(w, h, true);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
     try {
+      if (!it.inst) {
+        it.inst = it.f(it.el);
+        if (!it.inst) throw new Error(`la escena «${it.el.dataset.three}» no devolvió una instancia`);
+      }
+      const { renderer, camera, scene, controls } = it.inst;
+      const w = it.el.clientWidth, h = it.el.clientHeight;
+      const pr = Math.min(2.5, (window.devicePixelRatio || 1) * revealScale());
+      if (w !== it.w || h !== it.h || Math.abs(pr - it.pr) > 0.01) {
+        it.w = w; it.h = h; it.pr = pr;
+        renderer.setPixelRatio(pr);
+        renderer.setSize(w, h, true);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
       it.inst.tick(t, dt);
       controls?.update();
       renderer.render(scene, camera);
     } catch (err) {
-      renderer.dispose();
-      it.inst = null;
+      // Un fallo en una escena no debe detener el resto del bucle
       fail(it, err);
     }
   }
