@@ -464,7 +464,7 @@ function propensityScene(el) {
       <div>${tr('Treated', 'Tratados')}: ${nt} ${tr('of', 'de')} ${n}</div>
       <div>${tr('Max IPW weight', 'Peso IPW máximo')}: <b>${wmax.toFixed(1)}</b></div>
       <div>${tr('Effective sample size', 'Tamaño muestral efectivo')}: <b>${ess.toFixed(0)}</b> ${tr('of', 'de')} ${n}</div>
-      <div>${tr('Units with', 'Unidades con')} e(x) &lt; 0.05 ${tr('or', 'o')} &gt; 0.95: <b class="${extreme > 30 ? 'bad' : 'ok'}">${extreme}</b></div>
+      <div>${tr('Units with', 'Unidades con')} e(x) &lt; 0.05 ${tr('or', 'o')} &gt; 0.95: <b class="${wmax > 10 || extreme > 5 ? 'bad' : 'ok'}">${extreme}</b></div>
       <div style="margin-top:6px">${S.gamma > 2.5 ? `<span class="bad">${tr('Positivity nearly violated', 'Positividad casi violada')}:</span> ${tr('a few weights dominate the estimator.', 'pocos pesos dominan el estimador.')}` : (wmax > 10 || extreme > 5) ? `<span class="bad">${tr('Overlap is weakening', 'El solapamiento se debilita')}:</span> ${tr('a few weights are already large — watch the effective sample size.', 'unos pocos pesos ya son grandes — vigila el tamaño muestral efectivo.')}` : tr('Good overlap: weights are moderate.', 'Buen solapamiento: los pesos son moderados.')}</div>`;
   }
   slider.addEventListener('input', () => { S.gamma = +slider.value; update(); });
