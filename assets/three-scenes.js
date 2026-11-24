@@ -4,6 +4,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+// Bilingual UI: the Spanish deck sets lang="es", the English deck lang="en".
+const LANG = document.documentElement.lang.startsWith('en') ? 'en' : 'es';
+const tr = (en, es) => (LANG === 'en' ? en : es);
+
 const C = {
   navy: 0x14213d,
   orange: 0xff9a3c,
@@ -241,7 +245,7 @@ function dagScene(el) {
     box.visible = false;
     box.userData.node = k;
     g.add(box);
-    const lab = label(k === 'U' ? 'U (no obs.)' : k, { size: 0.5 });
+    const lab = label(k === 'U' ? tr('U (unobs.)', 'U (no obs.)') : k, { size: 0.5 });
     lab.position.set(0, 0.85, 0);
     g.add(lab);
     scene.add(g);
@@ -272,12 +276,12 @@ function dagScene(el) {
   }
 
   const ui = overlay(el, `
-    <button data-k="doT">do(T): intervenir</button>
-    <button data-k="adjX">Ajustar por X</button>
-    <button data-k="adjM">Ajustar por M</button>
-    <button data-k="reset">Reiniciar</button>`);
+    <button data-k="doT">${tr('do(T): intervene', 'do(T): intervenir')}</button>
+    <button data-k="adjX">${tr('Adjust for X', 'Ajustar por X')}</button>
+    <button data-k="adjM">${tr('Adjust for M', 'Ajustar por M')}</button>
+    <button data-k="reset">${tr('Reset', 'Reiniciar')}</button>`);
   const status = statusBox(el);
-  hint(el, 'Arrastra para rotar · rueda para zoom · clic en T, X o M');
+  hint(el, tr('Drag to rotate · scroll to zoom · click T, X or M', 'Arrastra para rotar · rueda para zoom · clic en T, X o M'));
 
   const S = { doT: false, adjX: false, adjM: false };
   const litColor = {};
@@ -304,15 +308,17 @@ function dagScene(el) {
     doLabel.visible = S.doT;
     ui.querySelectorAll('button[data-k]').forEach((b) => b.classList.toggle('on', !!S[b.dataset.k]));
 
-    const tag = (open) => (open ? '<span class="bad">abierto</span>' : '<span class="ok">bloqueado</span>');
+    const opened = () => `<span class="bad">${tr('open', 'abierto')}</span>`;
+    const blocked = () => `<span class="ok">${tr('blocked', 'bloqueado')}</span>`;
+    const tag = (isOpen) => (isOpen ? opened() : blocked());
     let verdict;
-    if (S.adjM) verdict = '<span class="bad">Sobrecontrol:</span> condicionar en el mediador M bloquea justo el efecto que queremos medir.';
-    else if (S.doT) verdict = '<span class="ok">Cirugía del grafo:</span> se borran las flechas hacia T. No queda ninguna puerta trasera; es lo que hace un experimento aleatorizado.';
-    else if (bd2) verdict = '<b>U</b> no se observa: ningún ajuste por puerta trasera identifica el efecto. La <b>puerta frontal</b> vía M sí lo identifica.';
+    if (S.adjM) verdict = `<span class="bad">${tr('Overadjustment', 'Sobrecontrol')}:</span> ${tr('conditioning on the mediator M blocks exactly the effect we want to measure.', 'condicionar en el mediador M bloquea justo el efecto que queremos medir.')}`;
+    else if (S.doT) verdict = `<span class="ok">${tr('Graph surgery', 'Cirugía del grafo')}:</span> ${tr('arrows into T are deleted. No backdoor remains — this is what randomization does.', 'se borran las flechas hacia T. No queda ninguna puerta trasera; es lo que hace un experimento aleatorizado.')}`;
+    else if (bd2) verdict = `<b>U</b> ${tr('is unobserved: no backdoor adjustment identifies the effect. The <b>frontdoor</b> path via M does.', 'no se observa: ningún ajuste por puerta trasera identifica el efecto. La <b>puerta frontal</b> vía M sí lo identifica.')}`;
     status.innerHTML = `
-      <div>Puerta trasera T ← X → Y: ${tag(bd1)}</div>
-      <div>Puerta trasera T ← U → Y: ${tag(bd2)}</div>
-      <div>Camino causal T → M → Y: ${causal ? '<span class="ok">abierto</span>' : '<span class="bad">bloqueado</span>'}</div>
+      <div>${tr('Backdoor', 'Puerta trasera')} T ← X → Y: ${tag(bd1)}</div>
+      <div>${tr('Backdoor', 'Puerta trasera')} T ← U → Y: ${tag(bd2)}</div>
+      <div>${tr('Causal path', 'Camino causal')} T → M → Y: ${causal ? opened() : blocked()}</div>
       <div style="margin-top:6px">${verdict}</div>`;
   }
   ui.addEventListener('click', (ev) => {
@@ -406,10 +412,10 @@ function propensityScene(el) {
   scene.add(inst);
 
   const ui = overlay(el, `
-    <label>Confusión γ <input type="range" min="0" max="4" step="0.1" value="1"><span class="gv">1.0</span></label>
-    <button data-k="w">Tamaño = peso IPW</button>`);
+    <label>${tr('Confounding', 'Confusión')} γ <input type="range" min="0" max="4" step="0.1" value="1"><span class="gv">1.0</span></label>
+    <button data-k="w">${tr('Size = IPW weight', 'Tamaño = peso IPW')}</button>`);
   const status = statusBox(el);
-  hint(el, 'Naranja: tratados · azul: control · arrastra para rotar');
+  hint(el, tr('Orange: treated · blue: control · drag to rotate', 'Naranja: tratados · azul: control · arrastra para rotar'));
   const slider = ui.querySelector('input');
   const S = { gamma: 1, w: false };
   const cBlue = new THREE.Color(0x4f8cff), cOrange = new THREE.Color(0xff9a3c), tmp = new THREE.Color();
@@ -451,11 +457,11 @@ function propensityScene(el) {
     const ess = (sw * sw) / sw2;
     status.innerHTML = `
       <div>e(x) = expit(γ·(x₁ + 0.6·x₂)), γ = <b>${S.gamma.toFixed(1)}</b></div>
-      <div>Tratados: ${nt} de ${n}</div>
-      <div>Peso IPW máximo: <b>${wmax.toFixed(1)}</b></div>
-      <div>Tamaño muestral efectivo: <b>${ess.toFixed(0)}</b> de ${n}</div>
-      <div>Unidades con e(x) &lt; 0.05 o &gt; 0.95: <b class="${extreme > 30 ? 'bad' : 'ok'}">${extreme}</b></div>
-      <div style="margin-top:6px">${S.gamma > 2.5 ? '<span class="bad">Positividad casi violada:</span> pocos pesos dominan el estimador.' : 'Buen solapamiento: los pesos son moderados.'}</div>`;
+      <div>${tr('Treated', 'Tratados')}: ${nt} ${tr('of', 'de')} ${n}</div>
+      <div>${tr('Max IPW weight', 'Peso IPW máximo')}: <b>${wmax.toFixed(1)}</b></div>
+      <div>${tr('Effective sample size', 'Tamaño muestral efectivo')}: <b>${ess.toFixed(0)}</b> ${tr('of', 'de')} ${n}</div>
+      <div>${tr('Units with', 'Unidades con')} e(x) &lt; 0.05 ${tr('or', 'o')} &gt; 0.95: <b class="${extreme > 30 ? 'bad' : 'ok'}">${extreme}</b></div>
+      <div style="margin-top:6px">${S.gamma > 2.5 ? `<span class="bad">${tr('Positivity nearly violated', 'Positividad casi violada')}:</span> ${tr('a few weights dominate the estimator.', 'pocos pesos dominan el estimador.')}` : tr('Good overlap: weights are moderate.', 'Buen solapamiento: los pesos son moderados.')}</div>`;
   }
   slider.addEventListener('input', () => { S.gamma = +slider.value; update(); });
   ui.querySelector('button').addEventListener('click', () => { S.w = !S.w; update(); });
@@ -490,8 +496,8 @@ function bayesScene(el) {
   const toW = (a, t) => [(a - ctr[0]) * K, (t - ctr[1]) * K];
 
   scene.add(new THREE.GridHelper(2 * span * K, 12, 0x40507a, 0x2a3658));
-  const la = label('α (intercepto)', { size: 0.4 }); la.position.set(span * K + 0.3, 0, 0); scene.add(la);
-  const lt = label('τ (efecto)', { size: 0.4 }); lt.position.set(0, 0, span * K + 0.6); scene.add(lt);
+  const la = label(tr('α (intercept)', 'α (intercepto)'), { size: 0.4 }); la.position.set(span * K + 0.3, 0, 0); scene.add(la);
+  const lt = label(tr('τ (effect)', 'τ (efecto)'), { size: 0.4 }); lt.position.set(0, 0, span * K + 0.6); scene.add(lt);
 
   const mkSurf = (opts) => {
     const g = new THREE.PlaneGeometry(2 * span * K, 2 * span * K, SEG, SEG);
@@ -517,10 +523,10 @@ function bayesScene(el) {
     scene.add(g);
     return g;
   };
-  const pPrior = pillar(C.blue, 'media a priori');
-  const pOls = pillar(C.orange, 'MCO');
-  const pPost = pillar(C.white, 'media posterior');
-  const pTrue = pillar(C.green, 'verdad');
+  const pPrior = pillar(C.blue, tr('prior mean', 'media a priori'));
+  const pOls = pillar(C.orange, tr('OLS', 'MCO'));
+  const pPost = pillar(C.white, tr('posterior mean', 'media posterior'));
+  const pTrue = pillar(C.green, tr('truth', 'verdad'));
   const placePillar = (p, a, t, h) => {
     const [x, z] = toW(a, t);
     p.position.set(x, 0, z);
@@ -531,9 +537,9 @@ function bayesScene(el) {
 
   const ui = overlay(el, `
     <label>n <input type="range" data-k="n" min="0" max="1" step="0.01" value="0.25"><span class="nv"></span></label>
-    <label>sd a priori <input type="range" data-k="s" min="-1.3" max="0.7" step="0.01" value="-0.5"><span class="sv"></span></label>`);
+    <label>${tr('prior sd', 'sd a priori')} <input type="range" data-k="s" min="-1.3" max="0.7" step="0.01" value="-0.5"><span class="sv"></span></label>`);
   const status = statusBox(el);
-  hint(el, 'Malla azul: prior · superficie: posterior · arrastra para rotar');
+  hint(el, tr('Blue mesh: prior · surface: posterior · drag to rotate', 'Malla azul: prior · superficie: posterior · arrastra para rotar'));
   const cLo = new THREE.Color(0x1e3a7a), cHi = new THREE.Color(0xffb15c), tmp = new THREE.Color();
 
   const inv2 = (A) => { const d = A[0] * A[3] - A[1] * A[2]; return [A[3] / d, -A[1] / d, -A[2] / d, A[0] / d]; };
@@ -581,9 +587,9 @@ function bayesScene(el) {
     const shrink = 1 - m[1] / ols[1];
     status.innerHTML = `
       <div>β | D ~ N(m, S), σ² = 1, μ₀ = 0, Σ₀ = ${s0.toFixed(2)}² I</div>
-      <div>τ̂<sub>MCO</sub> = <b>${ols[1].toFixed(2)}</b> · E(τ | D) = <b>${m[1].toFixed(2)}</b> · sd(τ | D) = <b>${sdTau.toFixed(2)}</b></div>
-      <div>Contracción hacia μ₀: <b>${(100 * shrink).toFixed(0)}%</b></div>
-      <div style="margin-top:6px">${shrink > 0.25 ? 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.' : 'Los datos dominan: la posterior se acerca a MCO y se concentra.'}</div>`;
+      <div>τ̂<sub>${tr('OLS', 'MCO')}</sub> = <b>${ols[1].toFixed(2)}</b> · E(τ | D) = <b>${m[1].toFixed(2)}</b> · sd(τ | D) = <b>${sdTau.toFixed(2)}</b></div>
+      <div>${tr('Shrinkage toward', 'Contracción hacia')} μ₀: <b>${(100 * shrink).toFixed(0)}%</b></div>
+      <div style="margin-top:6px">${shrink > 0.25 ? tr('Strong prior or little data: the posterior stays near μ₀.', 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.') : tr('Data dominate: the posterior moves toward OLS and tightens.', 'Los datos dominan: la posterior se acerca a MCO y se concentra.')}</div>`;
   }
   ui.addEventListener('input', update);
   update();
@@ -621,7 +627,7 @@ function fail(it, err) {
   it.el.querySelectorAll('canvas, .overlay, .status, .hint').forEach((n) => n.remove());
   const msg = document.createElement('div');
   msg.className = 'three-error';
-  msg.textContent = 'No se pudo iniciar la escena 3D (WebGL no disponible o error de carga). Prueba a recargar la página.';
+  msg.textContent = tr('Could not start the 3D scene (WebGL unavailable or load error). Try reloading the page.', 'No se pudo iniciar la escena 3D (WebGL no disponible o error de carga). Prueba a recargar la página.');
   it.el.appendChild(msg);
 }
 
