@@ -1,0 +1,169 @@
+/*-- scss:defaults --*/
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap");
+$navy: #14213d;
+$navy-2: #1f3360;
+$accent: #c8742b;
+$alert: #8a4b0f;
+$ink: #1d2433;
+$muted: #5b6478;
+
+$body-bg: #fbfaf7;
+$body-color: $ink;
+$link-color: $accent;
+$presentation-heading-color: $navy;
+$presentation-heading-font-weight: 500;
+$presentation-font-size-root: 30px;
+$font-family-sans-serif: '"Source Sans 3"', "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-family-monospace: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+$code-block-font-size: 0.6em;
+$presentation-h2-font-size: 1.45em;
+
+/*-- scss:rules --*/
+
+.reveal .slides section h2 {
+  border-bottom: 3px solid $accent;
+  padding-bottom: 0.15em;
+  margin-bottom: 0.5em;
+}
+
+.reveal .slide ul li { margin-bottom: 0.25em; }
+.reveal .slide ul li::marker { color: $accent; }
+.reveal .slide ol li::marker { color: $accent; font-weight: 700; }
+
+.reveal .hl { color: $accent; font-weight: 600; }
+.reveal .muted { color: $muted; }
+.reveal .small { font-size: 0.75em; }
+.reveal .tiny { font-size: 0.6em; }
+
+/* Beamer-style blocks: ::: {.block data-title="..."} */
+.reveal .block {
+  margin: 0.55em 0;
+  border-radius: 6px;
+  background: #eef1f7;
+  box-shadow: 0 2px 8px rgba(20, 33, 61, 0.12);
+  overflow: hidden;
+  padding: 0.35em 0.7em 0.45em;
+  font-size: 0.9em;
+}
+.reveal .block::before {
+  content: attr(data-title);
+  display: block;
+  margin: -0.35em -0.78em 0.35em;
+  padding: 0.25em 0.78em;
+  background: $navy;
+  color: #fff;
+  font-weight: 600;
+}
+.reveal .block.alert { background: #f8efe6; }
+.reveal .block.alert::before { background: $alert; }
+.reveal .block.theorem > p { font-style: italic; }
+.reveal .block p { margin: 0.25em 0; }
+
+/* section title slides */
+.reveal section.section-title, .reveal .slides > section > section.section-title {
+  text-align: left;
+}
+.reveal .slides section.section-title h1 {
+  color: #fff;
+  font-weight: 500;
+}
+
+/* hero title slide */
+#hero { text-align: left; }
+#hero > h2 { display: none; }
+#hero kbd { font-size: 0.85em; padding: 0 5px; border: 1px solid #5a6a8c; border-radius: 4px; background: transparent; color: #cfd8ea; }
+#hero .three-bg {
+  position: absolute; inset: -40px -60px; z-index: 0;
+}
+#hero .hero-text {
+  position: relative; z-index: 1;
+  margin-top: 170px;
+  pointer-events: none;
+}
+#hero .hero-title { display: block; color: #fff; font-size: 2.1em; font-weight: 600; line-height: 1.1; text-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+#hero .subtitle { display: block; color: #f3c99b; font-size: 1.0em; margin-top: 0.3em; }
+#hero .byline, #hero .hint { display: block; }
+#hero p { margin: 0; }
+#hero .byline { color: #d7deea; margin-top: 1.6em; font-size: 0.85em; }
+#hero .hint { color: #9fb0cc; font-size: 0.55em; margin-top: 2.5em; }
+
+/* three.js containers */
+.three-stage {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #22355e 0%, #0d1730 75%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+}
+.three-stage canvas { display: block; }
+.three-stage .overlay {
+  position: absolute; left: 12px; top: 10px; z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  font-size: 0.5em;
+}
+.three-stage .overlay button,
+.three-stage .overlay label {
+  font: inherit;
+  color: #e9eef8;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.three-stage .overlay button.on {
+  background: $accent; border-color: $accent; color: #fff;
+}
+.three-stage .overlay input[type=range] { width: 120px; accent-color: $accent; }
+.three-stage .status {
+  position: absolute; right: 12px; top: 10px; z-index: 2;
+  max-width: 40%;
+  color: #e9eef8;
+  background: rgba(10, 18, 38, 0.72);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.48em;
+  line-height: 1.45;
+}
+.three-stage .status b { color: #f3c99b; }
+.three-stage .status .ok { color: #8fd694; }
+.three-stage .status .bad { color: #ff9a76; }
+.three-stage .hint {
+  position: absolute; left: 12px; bottom: 8px; z-index: 2;
+  color: #8ea0c4; font-size: 0.42em;
+}
+
+/* OJS widgets */
+.reveal .ojs-small, .reveal .ojs-small form { font-size: 0.55em; }
+.reveal form.oi-3a86ea { --label-width: 210px; }
+.reveal .observablehq input[type=range] { accent-color: $accent; }
+.reveal .readout {
+  font-size: 0.62em;
+  background: #eef1f7;
+  border-left: 4px solid $accent;
+  padding: 0.4em 0.7em;
+  border-radius: 4px;
+}
+.reveal .readout b { color: $navy; }
+
+/* tables */
+.reveal table { font-size: 0.75em; }
+.reveal table th { color: $navy; border-bottom: 2px solid $navy; }
+
+/* code tabs */
+.reveal .panel-tabset { font-size: 0.95em; }
+.reveal div.sourceCode { border-radius: 6px; }
+.reveal .code-note { font-size: 0.5em; color: $muted; }
+
+/* hide copy buttons for OJS cells whose source is hidden */
+.reveal .code-copy-outer-scaffold:has(> .sourceCode.hidden) { display: none; }
+
+/* larger Observable Plot text */
+.reveal svg[class^="plot"], .reveal figure[class^="plot"] { font-size: 15px !important; font-family: "Source Sans 3", sans-serif !important; }
+.reveal div[class^="plot"] { font-size: 14px; }
+.reveal .smaller .readout { font-size: 0.85em; }
+.reveal .smaller form { font-size: 0.95em; }

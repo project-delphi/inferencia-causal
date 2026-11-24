@@ -1,0 +1,1300 @@
+---
+pagetitle: "Inferencia causal clásica y bayesiana"
+author: "Jhonier Rangel"
+date: 2026-11-14
+lang: es
+format:
+  revealjs:
+    theme: [default, assets/theme.scss]
+    width: 1280
+    height: 720
+    margin: 0.06
+    slide-number: c/t
+    show-slide-number: all
+    hash: true
+    transition: fade
+    background-transition: fade
+    code-copy: true
+    code-overflow: scroll
+    code-line-numbers: false
+    highlight-style: github
+    html-math-method: mathjax
+    footer: "Jhonier Rangel · Inferencia causal clásica y bayesiana"
+    menu:
+      side: left
+      numbers: true
+    include-in-header: assets/three-header.html
+    include-after-body: assets/three-body.html
+execute:
+  echo: false
+---
+
+## {#hero background-color="#0d1730" data-menu-title="Portada"}
+
+::: {.three-bg data-three="hero" data-prevent-swipe=""}
+:::
+
+::: {.hero-text}
+[Inferencia causal clásica y bayesiana]{.hero-title}
+
+[Identificación, estimación e incertidumbre: un tratamiento formal]{.subtitle}
+
+[Jhonier Rangel · 14 de noviembre de 2026]{.byline}
+
+[Versión interactiva · <kbd>→</kbd> avanzar · <kbd>F</kbd> pantalla completa · <kbd>M</kbd> menú · <kbd>S</kbd> notas]{.hint}
+:::
+
+## Contenido
+
+1. [Fundamentos](#fundamentos)
+2. [Resultados potenciales](#resultados-potenciales)
+3. [Modelos causales estructurales](#modelos-causales-estructurales)
+4. [Estimación clásica](#estimación-clásica)
+5. [Inferencia causal bayesiana](#inferencia-causal-bayesiana)
+6. [Comparación y cierre](#comparación-y-cierre)
+
+. . .
+
+::: {.readout}
+Esta versión incluye **simulaciones en vivo** (deslizadores), **escenas 3D** que se pueden rotar con el ratón y **código en R y Python**. Todo corre en el navegador; el código completo está en [`code/inferencia_causal.R`](code/inferencia_causal.R) y el PDF original en [`original/`](original/Inferencia_causal_clasica_y_bayesiana.pdf).
+:::
+
+# Fundamentos {.section-title background-color="#14213d"}
+
+## Asociación frente a causalidad
+
+- Una asociación es una propiedad de $P(Y \mid T)$; un efecto causal es una propiedad de $P(Y \mid \operatorname{do}(T))$ o de los resultados potenciales.
+- En general $P(y \mid t) \neq P(y \mid \operatorname{do}(t))$ cuando existen causas comunes de $T$ e $Y$.
+- La inferencia causal exige supuestos no verificables con los datos observados: los datos solos no identifican el efecto.
+
+::: {.block .alert data-title="Principio"}
+Sin supuestos causales no hay conclusiones causales (Cartwright, Pearl).
+:::
+
+## Escalera de la causalidad (Pearl)
+
+| Nivel | Pregunta | Objeto |
+|:------|:---------|:-------|
+| 1. Asociación | *¿Qué vemos?* | $P(y \mid x)$ |
+| 2. Intervención | *¿Qué pasa si hago?* | $P(y \mid \operatorname{do}(x))$ |
+| 3. Contrafactual | *¿Qué habría pasado?* | $P(y_x \mid x', y')$ |
+
+Cada nivel no puede responderse con información exclusiva del nivel inferior.
+
+## Paradoja de Simpson: cálculos renales
+
+|               | Piedras pequeñas | Piedras grandes | Total |
+|:--------------|:----------------:|:---------------:|:-----:|
+| Tratamiento A | 81/87 (93 %)  | 192/263 (73 %) | 273/350 (78 %) |
+| Tratamiento B | 234/270 (87 %) | 55/80 (69 %)  | 289/350 (83 %) |
+
+- A es mejor en cada estrato, pero B parece mejor en el agregado.
+- El tamaño de la piedra es un confusor: influye en la asignación y en el resultado.
+- La decisión correcta depende del DAG, no de los números.
+
+## Simpson en vivo {.smaller}
+
+:::: {.columns}
+::: {.column width="55%"}
+```{ojs}
+viewof pA = Inputs.range([0, 1], {value: 263/350, step: 0.01, label: "Fracción de piedras grandes en A"})
+viewof pB = Inputs.range([0, 1], {value: 80/350, step: 0.01, label: "Fracción de piedras grandes en B"})
+```
+
+```{ojs}
+simpsonRows = {
+  const r = {A: {peq: 81/87, gra: 192/263}, B: {peq: 234/270, gra: 55/80}};
+  const tot = (k, p) => (1 - p) * r[k].peq + p * r[k].gra;
+  return [
+    {grupo: "Pequeñas", trat: "A", tasa: r.A.peq}, {grupo: "Pequeñas", trat: "B", tasa: r.B.peq},
+    {grupo: "Grandes", trat: "A", tasa: r.A.gra}, {grupo: "Grandes", trat: "B", tasa: r.B.gra},
+    {grupo: "Total", trat: "A", tasa: tot("A", pA)}, {grupo: "Total", trat: "B", tasa: tot("B", pB)}
+  ];
+}
+Plot.plot({
+  width: 620, height: 300, marginTop: 30,
+  fx: {domain: ["Pequeñas", "Grandes", "Total"], label: null},
+  x: {axis: null, domain: ["A", "B"]},
+  y: {domain: [0, 1.08], label: "Tasa de éxito", tickFormat: "%", grid: true},
+  color: {domain: ["A", "B"], range: ["#14213d", "#c8742b"], legend: true},
+  marks: [
+    Plot.barY(simpsonRows, {fx: "grupo", x: "trat", y: "tasa", fill: "trat"}),
+    Plot.text(simpsonRows, {fx: "grupo", x: "trat", y: "tasa", text: d => (100 * d.tasa).toFixed(0) + "%", dy: -9, fontSize: 13})
+  ]
+})
+```
+:::
+::: {.column width="45%"}
+```{ojs}
+{
+  const a = simpsonRows[4].tasa, b = simpsonRows[5].tasa;
+  return html`<div class="readout">
+    Agregado: A = <b>${(100*a).toFixed(1)}%</b>, B = <b>${(100*b).toFixed(1)}%</b><br>
+    ${a < b ? "⚠️ <b>Paradoja:</b> B «gana» en el total aunque A gana en cada estrato. A recibió los casos difíciles."
+            : "✓ Con asignaciones parecidas entre grupos, el total vuelve a favorecer a A."}
+  </div>`;
+}
+```
+
+Mueve los deslizadores: las tasas **dentro** de cada estrato no cambian; sólo cambia **quién recibe qué**. El agregado mezcla el efecto del tratamiento con el efecto de la gravedad.
+
+```r
+# Estandarización (ajuste por el confusor)
+w <- c(peq = 357, gra = 343) / 700   # P(tamaño)
+A <- c(81/87, 192/263); B <- c(234/270, 55/80)
+sum(w * A) - sum(w * B)              # ≈ +0.05 a favor de A
+```
+:::
+::::
+
+# Resultados potenciales {.section-title background-color="#14213d"}
+
+## Marco de Neyman–Rubin
+
+::: {.block data-title="Definición 1"}
+Para cada unidad $i$ y tratamiento binario $T_i \in \{0,1\}$, los resultados potenciales son $Y_i(1)$ y $Y_i(0)$. El resultado observado es
+$$Y_i = T_i Y_i(1) + (1-T_i) Y_i(0).$$
+:::
+
+::: {.block data-title="Problema fundamental"}
+Para cada $i$ sólo se observa uno de $Y_i(1), Y_i(0)$; el otro es un dato faltante. El efecto individual $\tau_i = Y_i(1) - Y_i(0)$ no es identificable.
+:::
+
+## Estimandos causales
+
+$$
+\begin{aligned}
+\text{ATE} &= \mathbb{E}[Y(1) - Y(0)] \\
+\text{ATT} &= \mathbb{E}[Y(1) - Y(0) \mid T = 1] \\
+\text{ATC} &= \mathbb{E}[Y(1) - Y(0) \mid T = 0] \\
+\text{CATE}(x) &= \mathbb{E}[Y(1) - Y(0) \mid X = x]
+\end{aligned}
+$$
+
+- $\text{ATE} = \mathbb{P}(T=1)\,\text{ATT} + \mathbb{P}(T=0)\,\text{ATC}$.
+- También: efectos cuantílicos, efectos en riesgo relativo y en razón de momios.
+- Elegir el estimando es una decisión científica previa a elegir el estimador.
+
+## Supuesto SUTVA
+
+::: {.block data-title="Definición 2 (SUTVA)"}
+(i) *Sin interferencia*: $Y_i$ depende sólo de $T_i$, no de $T_j$ con $j \neq i$. (ii) *Versión única*: no existen versiones distintas del tratamiento con efectos distintos.
+:::
+
+- Se viola en contagio, redes sociales, efectos de equilibrio general o de derrame.
+- Con interferencia el efecto depende del vector de asignaciones $\mathbf{T}$ y se requieren estimandos directos e indirectos.
+
+## Mecanismo de asignación y sesgo de selección
+
+La diferencia ingenua de medias se descompone como
+
+$$
+\mathbb{E}[Y \mid T=1] - \mathbb{E}[Y \mid T=0] = \underbrace{\text{ATT}}_{\text{efecto}} + \underbrace{\mathbb{E}[Y(0) \mid T=1] - \mathbb{E}[Y(0) \mid T=0]}_{\text{sesgo de selección}}.
+$$
+
+- El sesgo mide cuánto difieren los grupos en ausencia de tratamiento.
+- La aleatorización lo anula porque $T \perp\!\!\!\perp (Y(0), Y(1))$.
+
+## Sesgo de selección en vivo {.smaller}
+
+:::: {.columns}
+::: {.column width="58%"}
+```{ojs}
+viewof kSel = Inputs.range([-2, 2], {value: 1, step: 0.05, label: "Selección por X (k)"})
+viewof aleat = Inputs.toggle({label: "Aleatorizar T", value: false})
+```
+
+```{ojs}
+selRes = {
+  const rng = mulberry32(42), n = 20000;
+  let s1 = 0, s0 = 0, n1 = 0, n0 = 0, y01 = 0, y00 = 0, att = 0;
+  for (let i = 0; i < n; i++) {
+    const x = randn(rng);
+    const t = aleat ? (rng() < 0.5 ? 1 : 0) : (kSel * x + randn(rng) > 0 ? 1 : 0);
+    const y0 = x + randn(rng), y1 = y0 + 1;   // efecto verdadero = 1
+    if (t) { n1++; s1 += y1; y01 += y0; att += y1 - y0; } else { n0++; s0 += y0; y00 += y0; }
+  }
+  const naive = s1 / n1 - s0 / n0, sesgo = y01 / n1 - y00 / n0;
+  return [
+    {termino: "Diferencia ingenua", valor: naive},
+    {termino: "ATT (efecto)", valor: att / n1},
+    {termino: "Sesgo de selección", valor: sesgo}
+  ];
+}
+Plot.plot({
+  width: 640, height: 210, marginLeft: 150,
+  x: {domain: [-2, 3], label: "Valor", grid: true},
+  y: {label: null, domain: selRes.map(d => d.termino)},
+  marks: [
+    Plot.barX(selRes, {y: "termino", x: "valor", fill: d => d.termino.startsWith("ATT") ? "#2e8b57" : d.termino.startsWith("Sesgo") ? "#c8742b" : "#14213d"}),
+    Plot.text(selRes, {y: "termino", x: "valor", text: d => d.valor.toFixed(2), dx: 22}),
+    Plot.ruleX([0])
+  ]
+})
+```
+:::
+::: {.column width="42%"}
+Modelo: $Y(0) = X + \varepsilon$, $Y(1) = Y(0) + 1$ y $T = \mathbb{1}\{kX + \eta > 0\}$.
+
+- Con $k > 0$ se tratan las unidades con $Y(0)$ alto: el sesgo es **positivo**.
+- Con $k < 0$ el sesgo cambia de signo.
+- Al **aleatorizar**, el sesgo desaparece y la diferencia ingenua recupera el efecto.
+
+```r
+naive <- mean(Y[T == 1]) - mean(Y[T == 0])
+sesgo <- mean(Y0[T == 1]) - mean(Y0[T == 0])
+```
+:::
+::::
+
+## Ignorabilidad y positividad
+
+::: {.block data-title="Definición 3 (Ignorabilidad condicional)"}
+$(Y(0), Y(1)) \perp\!\!\!\perp T \mid X$.
+:::
+
+::: {.block data-title="Definición 4 (Positividad / soporte común)"}
+$0 < e(x) < 1$ para todo $x$ con densidad positiva, donde $e(x) = \mathbb{P}(T = 1 \mid X = x)$.
+:::
+
+::: {.block .theorem data-title="Teorema 5 (Identificación del ATE)"}
+Bajo SUTVA, ignorabilidad y positividad,
+$$\text{ATE} = \mathbb{E}_X\big[\mathbb{E}(Y \mid T=1, X) - \mathbb{E}(Y \mid T=0, X)\big].$$
+:::
+
+## Demostración del teorema de identificación
+
+::: {.block data-title="Demostración"}
+Por la ley de esperanzas iteradas,
+$$
+\begin{aligned}
+\mathbb{E}[Y(1)] &= \mathbb{E}_X\big[\mathbb{E}(Y(1) \mid X)\big] \\
+&= \mathbb{E}_X\big[\mathbb{E}(Y(1) \mid T=1, X)\big] && \text{(ignorabilidad)} \\
+&= \mathbb{E}_X\big[\mathbb{E}(Y \mid T=1, X)\big] && \text{(consistencia).}
+\end{aligned}
+$$
+La positividad garantiza que $\mathbb{E}(Y \mid T=1, X=x)$ está definida para todo $x$. Análogamente para $Y(0)$. $\square$
+:::
+
+## Experimentos aleatorizados
+
+- Aleatorización completa: $T \perp\!\!\!\perp (Y(0), Y(1), X)$, de modo que $\text{ATE} = \mathbb{E}[Y \mid T=1] - \mathbb{E}[Y \mid T=0]$.
+- Estimador de Neyman: $\hat\tau = \bar Y_1 - \bar Y_0$, insesgado bajo la distribución de aleatorización.
+- Varianza conservadora: $\hat V = \dfrac{s_1^2}{n_1} + \dfrac{s_0^2}{n_0}$.
+- Contraste exacto de Fisher: hipótesis nula fuerte $Y_i(1) = Y_i(0)$ para todo $i$.
+- Ajuste por covariables (Lin, 2013) reduce la varianza sin sesgo asintótico.
+
+## En código: análisis de un experimento
+
+::: {.panel-tabset}
+### R
+
+```r
+tau_hat <- mean(Y[T == 1]) - mean(Y[T == 0])                 # Neyman
+V_hat   <- var(Y[T == 1]) / sum(T) + var(Y[T == 0]) / sum(1 - T)
+tau_hat + c(-1, 1) * qnorm(0.975) * sqrt(V_hat)
+
+# Prueba exacta de Fisher (aproximada por permutación) bajo la nula fuerte
+perm <- replicate(10000, { Tp <- sample(T); mean(Y[Tp == 1]) - mean(Y[Tp == 0]) })
+mean(abs(perm) >= abs(tau_hat))                               # valor p
+
+# Ajuste de Lin (2013): interacciones con covariables centradas + EE robustos
+Xc  <- scale(X, scale = FALSE)
+lin <- lm(Y ~ T * Xc)
+coef(lin)["T"]          # usar sandwich::vcovHC(lin, "HC2") para el error estándar
+```
+
+### Python
+
+```python
+import numpy as np
+rng = np.random.default_rng(1)
+tau_hat = Y[T == 1].mean() - Y[T == 0].mean()
+V_hat = Y[T == 1].var(ddof=1) / T.sum() + Y[T == 0].var(ddof=1) / (1 - T).sum()
+
+perm = np.array([(lambda Tp: Y[Tp == 1].mean() - Y[Tp == 0].mean())(rng.permutation(T))
+                 for _ in range(10_000)])
+p_fisher = np.mean(np.abs(perm) >= abs(tau_hat))
+
+import statsmodels.formula.api as smf      # ajuste de Lin con EE HC2
+lin = smf.ols("Y ~ T * (X1_c + X2_c)", data=df).fit(cov_type="HC2")
+```
+:::
+
+# Modelos causales estructurales {.section-title background-color="#14213d"}
+
+## Modelo causal estructural
+
+::: {.block data-title="Definición 6 (SCM)"}
+Un SCM es $M = \langle U, V, F, P(U) \rangle$ con variables endógenas $V$, exógenas $U$ y funciones $F = \{f_i\}$ tales que $v_i = f_i(\mathrm{pa}_i, u_i)$.
+:::
+
+- El grafo $G$ tiene una arista $V_j \to V_i$ si $V_j \in \mathrm{pa}_i$.
+- Condición de Markov causal: $P(v) = \prod_i P(v_i \mid \mathrm{pa}_i)$.
+- Una intervención $\operatorname{do}(T = t)$ reemplaza $f_T$ por la constante $t$ (cirugía del grafo).
+
+## Cirugía del grafo en 3D {data-menu-title="DAG 3D"}
+
+::: {.three-stage data-three="dag" data-prevent-swipe="" style="height: 560px"}
+:::
+
+[Pulsa **do(T)** para borrar las flechas que entran en $T$; **ajustar** pone un anillo sobre el nodo condicionado. Los pulsos naranjas son caminos no causales abiertos; los verdes, el efecto causal.]{.small .muted}
+
+## Estructuras básicas y d-separación
+
+```{=html}
+<svg viewBox="0 0 1150 110" width="100%" height="110" style="font-family: 'Source Sans 3', sans-serif; font-style: italic; font-size: 26px">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#14213d"/></marker></defs>
+  <g fill="none" stroke="#14213d" stroke-width="2.2">
+    <circle cx="45" cy="55" r="27"/><circle cx="195" cy="55" r="27"/><circle cx="345" cy="55" r="27"/>
+    <line x1="72" y1="55" x2="166" y2="55" marker-end="url(#ah)"/><line x1="222" y1="55" x2="316" y2="55" marker-end="url(#ah)"/>
+    <circle cx="430" cy="55" r="27"/><circle cx="580" cy="55" r="27"/><circle cx="730" cy="55" r="27"/>
+    <line x1="553" y1="55" x2="459" y2="55" marker-end="url(#ah)"/><line x1="607" y1="55" x2="701" y2="55" marker-end="url(#ah)"/>
+    <circle cx="815" cy="55" r="27"/><circle cx="965" cy="55" r="27"/><circle cx="1115" cy="55" r="27"/>
+    <line x1="842" y1="55" x2="936" y2="55" marker-end="url(#ah)"/><line x1="1088" y1="55" x2="994" y2="55" marker-end="url(#ah)"/>
+  </g>
+  <g fill="#14213d" text-anchor="middle" dominant-baseline="central">
+    <text x="45" y="55">A</text><text x="195" y="55">B</text><text x="345" y="55">C</text>
+    <text x="430" y="55">A</text><text x="580" y="55">B</text><text x="730" y="55">C</text>
+    <text x="815" y="55">A</text><text x="965" y="55">B</text><text x="1115" y="55">C</text>
+  </g>
+</svg>
+```
+
+Cadena, bifurcación (confusor) y colisionador. Un camino está *bloqueado* por $Z$ si contiene un no-colisionador en $Z$, o un colisionador tal que ni él ni sus descendientes están en $Z$.
+
+::: {.block .theorem data-title="Teorema 7"}
+Si $X$ y $Y$ están d-separados por $Z$ en $G$, entonces $X \perp\!\!\!\perp Y \mid Z$ en toda $P$ compatible con $G$.
+:::
+
+## d-separación en vivo {.smaller}
+
+:::: {.columns}
+::: {.column width="58%"}
+```{ojs}
+viewof estructura = Inputs.radio(["Cadena A → B → C", "Bifurcación A ← B → C", "Colisionador A → B ← C"], {value: "Colisionador A → B ← C"})
+viewof condB = Inputs.toggle({label: "Condicionar en B", value: false})
+```
+
+```{ojs}
+dsep = {
+  const rng = mulberry32(5), n = 1200, rows = [];
+  for (let i = 0; i < n; i++) {
+    let A, B, C;
+    if (estructura.startsWith("Cadena")) { A = randn(rng); B = A + randn(rng); C = B + randn(rng); }
+    else if (estructura.startsWith("Bif")) { B = randn(rng); A = B + randn(rng); C = B + randn(rng); }
+    else { A = randn(rng); C = randn(rng); B = A + C + 0.5 * randn(rng); }
+    rows.push({A, B, C});
+  }
+  const sB = Math.sqrt(rows.reduce((s, r) => s + r.B * r.B, 0) / n);
+  rows.forEach(r => r.sel = Math.abs(r.B) < 0.2 * sB);
+  return rows;
+}
+Plot.plot({
+  width: 640, height: 330, grid: true,
+  x: {domain: [-4.5, 4.5], label: "A"}, y: {domain: [-5, 5], label: "C"},
+  marks: [
+    Plot.dot(dsep, {x: "A", y: "C", r: 2, fill: condB ? "#b9c1d0" : "#14213d", fillOpacity: condB ? 0.4 : 0.5}),
+    condB ? Plot.dot(dsep.filter(d => d.sel), {x: "A", y: "C", r: 3, fill: "#c8742b"}) : null,
+    Plot.linearRegressionY(condB ? dsep.filter(d => d.sel) : dsep, {x: "A", y: "C", stroke: condB ? "#c8742b" : "#14213d", strokeWidth: 3, ci: 0})
+  ]
+})
+```
+:::
+::: {.column width="42%"}
+```{ojs}
+{
+  const r = rows => {
+    const n = rows.length, ma = d3.mean(rows, d => d.A), mc = d3.mean(rows, d => d.C);
+    let sac = 0, saa = 0, scc = 0;
+    for (const d of rows) { sac += (d.A - ma) * (d.C - mc); saa += (d.A - ma) ** 2; scc += (d.C - mc) ** 2; }
+    return sac / Math.sqrt(saa * scc);
+  };
+  const all = r(dsep), sel = r(dsep.filter(d => d.sel));
+  const col = estructura.startsWith("Col");
+  return html`<div class="readout">
+    corr(A, C) marginal: <b>${all.toFixed(2)}</b><br>
+    corr(A, C | B ≈ 0): <b>${sel.toFixed(2)}</b><br><br>
+    ${col ? "En un <b>colisionador</b>, A y C son independientes, pero condicionar en B <b>abre</b> el camino: aparece una correlación espuria."
+          : "En una cadena o bifurcación, A y C están asociados, pero condicionar en B <b>bloquea</b> el camino."}
+  </div>`;
+}
+```
+
+```r
+library(dagitty)
+g <- dagitty("dag { A -> B <- C }")
+dseparated(g, "A", "C", list())   # TRUE
+dseparated(g, "A", "C", "B")      # FALSE
+```
+:::
+::::
+
+## Sesgos estructurales
+
+- [Confusión]{.hl}: camino de puerta trasera abierto $T \leftarrow X \rightarrow Y$.
+- [Sesgo de colisionador]{.hl}: condicionar en $C$ en $T \to C \leftarrow Y$ abre un camino espurio.
+- [Sobrecontrol]{.hl}: condicionar en un mediador $M$ en $T \to M \to Y$ bloquea parte del efecto.
+- [Sesgo M]{.hl}: condicionar en un pre-tratamiento que es colisionador de dos causas no observadas.
+
+La regla "controlar por todo lo pre-tratamiento" no es correcta en general.
+
+## Criterio de la puerta trasera
+
+::: {.block data-title="Definición 8 (Backdoor)"}
+$Z$ satisface el criterio de la puerta trasera respecto a $(T, Y)$ si (i) ningún nodo de $Z$ es descendiente de $T$ y (ii) $Z$ bloquea todo camino entre $T$ e $Y$ que contenga una flecha hacia $T$.
+:::
+
+::: {.block .theorem data-title="Teorema 9"}
+Si $Z$ cumple el criterio, entonces
+$$P(y \mid \operatorname{do}(t)) = \sum_z P(y \mid t, z)\, P(z).$$
+:::
+
+Equivale a ignorabilidad condicional en $Z$ y justifica regresión, IPW y emparejamiento.
+
+## Criterio de la puerta frontal
+
+```{=html}
+<svg viewBox="0 0 600 170" width="560" height="160" style="display:block;margin:0 auto;font-family:'Source Sans 3',sans-serif;font-style:italic;font-size:24px">
+  <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#14213d"/></marker></defs>
+  <g fill="none" stroke="#14213d" stroke-width="2.2">
+    <circle cx="300" cy="35" r="24" stroke-dasharray="5 4"/>
+    <circle cx="100" cy="135" r="24"/><circle cx="300" cy="135" r="24"/><circle cx="500" cy="135" r="24"/>
+    <line x1="124" y1="135" x2="272" y2="135" marker-end="url(#ah2)"/><line x1="324" y1="135" x2="472" y2="135" marker-end="url(#ah2)"/>
+    <line x1="280" y1="48" x2="124" y2="122" stroke-dasharray="6 5" marker-end="url(#ah2)"/><line x1="320" y1="48" x2="476" y2="122" stroke-dasharray="6 5" marker-end="url(#ah2)"/>
+  </g>
+  <g fill="#14213d" text-anchor="middle" dominant-baseline="central">
+    <text x="300" y="35">U</text><text x="100" y="135">T</text><text x="300" y="135">M</text><text x="500" y="135">Y</text>
+  </g>
+</svg>
+```
+
+Si $M$ intercepta todo camino dirigido de $T$ a $Y$, no hay puerta trasera $T \leftarrow \cdot \rightarrow M$ y $T$ bloquea las de $M \to Y$:
+$$P(y \mid \operatorname{do}(t)) = \sum_m P(m \mid t) \sum_{t'} P(y \mid m, t')\, P(t').$$
+
+Identifica el efecto aun con confusor $U$ no observado.
+
+## En código: identificación a partir del DAG
+
+::: {.panel-tabset}
+### R · dagitty
+
+```r
+library(dagitty)
+g <- dagitty("dag {
+  X -> T ; X -> Y
+  U -> T ; U -> Y
+  T -> M -> Y
+  U [latent]
+}")
+adjustmentSets(g, exposure = "T", outcome = "Y")  # ningún conjunto: U bloquea la puerta trasera
+adjustmentSets(g, exposure = "M", outcome = "Y")  # { T, X } o { T }: puerta frontal, etapa 2
+impliedConditionalIndependencies(g)               # implicaciones contrastables
+```
+
+### Python · DoWhy
+
+```python
+from dowhy import CausalModel
+
+model = CausalModel(
+    data=df, treatment="T", outcome="Y",
+    graph="digraph { X -> T; X -> Y; U -> T; U -> Y; T -> M; M -> Y; }",
+)  # U no está en df: se trata como no observado
+estimand = model.identify_effect()        # encuentra el estimando de puerta frontal
+print(estimand)
+est = model.estimate_effect(estimand, method_name="frontdoor.two_stage_regression")
+```
+:::
+
+## Cálculo-do {.smaller}
+
+Sea $G_{\overline{X}}$ el grafo sin flechas hacia $X$ y $G_{\underline{Z}}$ sin flechas desde $Z$.
+
+1. **Inserción/eliminación de observaciones**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}}}$, entonces $P(y \mid \operatorname{do}(x), z, w) = P(y \mid \operatorname{do}(x), w)$.
+2. **Acción/observación**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\underline{Z}}}$, entonces $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), z, w)$.
+3. **Inserción/eliminación de acciones**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\,\overline{Z(W)}}}$, entonces $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), w)$.
+
+::: {.block .theorem data-title="Teorema 10 (Completitud, Shpitser–Pearl; Huang–Valtorta)"}
+Un efecto causal es identificable a partir de $P(v)$ y $G$ si y sólo si puede derivarse con estas tres reglas.
+:::
+
+## Contrafactuales en un SCM
+
+Para evaluar $P(Y_t \mid T = t', Y = y')$ se siguen tres pasos:
+
+1. **Abducción**: actualizar $P(U)$ con la evidencia $\{T = t', Y = y'\}$ y obtener $P(U \mid t', y')$.
+2. **Acción**: modificar el modelo con $\operatorname{do}(T = t)$.
+3. **Predicción**: calcular la distribución de $Y$ en el modelo modificado con $P(U \mid t', y')$.
+
+Los contrafactuales son identificables sólo con supuestos adicionales sobre $f$ (p. ej. monotonicidad); los efectos de tratamiento y probabilidades de necesidad y suficiencia pueden acotarse.
+
+# Estimación clásica {.section-title background-color="#14213d"}
+
+## Regresión y teorema de Frisch–Waugh–Lovell
+
+Modelo $Y = \alpha + \tau T + X^\top \beta + \varepsilon$.
+
+::: {.block .theorem data-title="Teorema 11 (FWL)"}
+$\hat\tau$ coincide con la pendiente de regresar $\tilde Y = Y - \hat Y(X)$ sobre $\tilde T = T - \hat T(X)$.
+:::
+
+- $\hat\tau$ estima el ATE si $\mathbb{E}[Y(t) \mid X]$ es lineal en $X$ y el efecto es homogéneo; con heterogeneidad, estima un promedio ponderado por $\mathbb{V}(T \mid X)$.
+- Se recomienda incluir interacciones $T \times X$ (estimador de imputación o g-computación).
+
+```r
+ry <- resid(lm(Y ~ X1 + X2)); rt <- resid(lm(T ~ X1 + X2))
+coef(lm(ry ~ rt))[2] == coef(lm(Y ~ T + X1 + X2))["T"]   # FWL (salvo redondeo)
+fit <- lm(Y ~ T * (X1 + X2))                              # g-computación
+mean(predict(fit, transform(d, T = 1)) - predict(fit, transform(d, T = 0)))
+```
+
+## Puntaje de propensión
+
+::: {.block .theorem data-title="Teorema 12 (Rosenbaum–Rubin, 1983)"}
+Si $(Y(0), Y(1)) \perp\!\!\!\perp T \mid X$ y $0 < e(X) < 1$, entonces $(Y(0), Y(1)) \perp\!\!\!\perp T \mid e(X)$.
+:::
+
+::: {.block data-title="Demostración"}
+$\mathbb{P}(T=1 \mid Y(0), Y(1), e(X)) = \mathbb{E}\big[\mathbb{E}(T \mid Y(0), Y(1), X) \mid Y(0), Y(1), e(X)\big] = \mathbb{E}[e(X) \mid Y(0), Y(1), e(X)] = e(X)$. Como esto no depende de $(Y(0), Y(1))$, se obtiene la independencia. $\square$
+:::
+
+El puntaje balanceador reduce la dimensión de $X$ a un escalar: $X \perp\!\!\!\perp T \mid e(X)$.
+
+## La superficie $e(x)$ en 3D {data-menu-title="Propensión 3D"}
+
+::: {.three-stage data-three="propensity" data-prevent-swipe="" style="height: 560px"}
+:::
+
+[Sube la **confusión γ**: la superficie se vuelve un escalón, los grupos dejan de solaparse y unos pocos pesos IPW $1/\hat e$ dominan. Es la positividad en acción.]{.small .muted}
+
+## Ponderación por probabilidad inversa (IPW)
+
+$$
+\hat\tau_{\text{IPW}} = \frac{1}{n} \sum_{i=1}^n \left[ \frac{T_i Y_i}{\hat e(X_i)} - \frac{(1-T_i) Y_i}{1 - \hat e(X_i)} \right]
+$$
+
+::: {.block data-title="Insesgamiento con e conocido"}
+$\mathbb{E}\Big[\frac{TY}{e(X)}\Big] = \mathbb{E}\Big[\frac{T\,Y(1)}{e(X)}\Big] = \mathbb{E}\Big[\frac{\mathbb{E}(T \mid X, Y(1))}{e(X)} Y(1)\Big] = \mathbb{E}[Y(1)]$. $\square$
+:::
+
+- Varianza inflada si $e(X)$ cercano a 0 o 1; se usa estabilización (Hajek) o recorte.
+- Pesos para ATT: $T + (1-T)\,\hat e / (1 - \hat e)$.
+
+## Emparejamiento y estratificación
+
+- **Vecino más cercano** en $e(X)$ o distancia de Mahalanobis, con o sin reemplazo.
+- **Abadie–Imbens**: imputa el contrafactual con los $M$ vecinos más cercanos; con corrección de sesgo regresión-ajustada.
+- **Estratificación**: cinco subclases en $e(X)$ eliminan $\approx 90\,\%$ del sesgo (Cochran).
+- **Balance**: diferencias estándar medias $|\text{SMD}| < 0{,}1$ tras el emparejamiento.
+- El emparejamiento por puntaje no es $\sqrt{n}$-consistente con varianza usual: usar errores de Abadie–Imbens o bootstrap apropiado.
+
+```r
+library(MatchIt); library(marginaleffects)
+m  <- matchit(T ~ X1 + X2, data = d, method = "nearest", distance = "glm", caliper = 0.1)
+summary(m)                                        # |SMD| antes y después
+md <- match.data(m)
+fit <- lm(Y ~ T * (X1 + X2), data = md, weights = weights)
+avg_comparisons(fit, variables = "T", vcov = ~subclass,
+                newdata = subset(md, T == 1), wts = "weights")   # ATT
+```
+
+## Estimador doblemente robusto (AIPW) {.smaller}
+
+$$
+\hat\psi_i = \hat\mu_1(X_i) - \hat\mu_0(X_i) + \frac{T_i (Y_i - \hat\mu_1(X_i))}{\hat e(X_i)} - \frac{(1-T_i)(Y_i - \hat\mu_0(X_i))}{1 - \hat e(X_i)}, \qquad \hat\tau = \tfrac{1}{n} \textstyle\sum_i \hat\psi_i
+$$
+
+::: {.block .theorem data-title="Teorema 13 (Doble robustez)"}
+$\hat\tau$ es consistente si $\hat e$ o $\hat\mu_t$ es consistente.
+:::
+
+::: {.block data-title="Idea"}
+Si $\hat e = e$: $\mathbb{E}[T(Y - \hat\mu_1)/e] = \mathbb{E}[Y(1) - \hat\mu_1(X)]$, y el término se cancela. Si $\hat\mu_1 = \mu_1$: $\mathbb{E}[T(Y - \mu_1)/\hat e] = \mathbb{E}\big[\tfrac{T}{\hat e}(\mathbb{E}(Y \mid X, T=1) - \mu_1)\big] = 0$. $\square$
+:::
+
+## En código: IPW y AIPW
+
+::: {.panel-tabset}
+### R
+
+```r
+ps  <- fitted(glm(T ~ X1 + X2, family = binomial, data = d))
+ipw <- mean(T * Y / ps) - mean((1 - T) * Y / (1 - ps))            # Horvitz–Thompson
+w1 <- T / ps; w0 <- (1 - T) / (1 - ps)
+hajek <- sum(w1 * Y) / sum(w1) - sum(w0 * Y) / sum(w0)             # estabilizado
+
+mu1 <- predict(lm(Y ~ X1 + X2, data = d, subset = T == 1), d)
+mu0 <- predict(lm(Y ~ X1 + X2, data = d, subset = T == 0), d)
+psi <- mu1 - mu0 + T * (Y - mu1) / ps - (1 - T) * (Y - mu0) / (1 - ps)
+c(aipw = mean(psi), se = sd(psi) / sqrt(nrow(d)))                  # EE por función de influencia
+```
+
+### Python
+
+```python
+import numpy as np
+from sklearn.linear_model import LogisticRegression, LinearRegression
+
+e = LogisticRegression(penalty=None).fit(X, T).predict_proba(X)[:, 1]
+mu1 = LinearRegression().fit(X[T == 1], Y[T == 1]).predict(X)
+mu0 = LinearRegression().fit(X[T == 0], Y[T == 0]).predict(X)
+
+ipw = np.mean(T * Y / e) - np.mean((1 - T) * Y / (1 - e))
+psi = mu1 - mu0 + T * (Y - mu1) / e - (1 - T) * (Y - mu0) / (1 - e)
+aipw, se = psi.mean(), psi.std(ddof=1) / np.sqrt(len(psi))
+```
+:::
+
+## Laboratorio: ¿qué estimador sobrevive? {.smaller}
+
+:::: {.columns}
+::: {.column width="40%"}
+```{ojs}
+viewof labGamma = Inputs.range([0, 2.5], {value: 1.2, step: 0.1, label: "Confusión γ"})
+viewof labN = Inputs.range([200, 2000], {value: 500, step: 100, label: "n por réplica"})
+viewof labBadE = Inputs.toggle({label: "ê(X) mal especificado (omite X₂)", value: false})
+viewof labBadMu = Inputs.toggle({label: "μ̂(X) mal especificado (omite X₂)", value: false})
+```
+
+[100 réplicas Monte Carlo. Verdad: $\tau = 2$. Modelo: $T \sim \text{Bern}(\text{expit}(\gamma(0.7X_1 + 0.9X_2)))$, $Y = 1 + 2T + X_1 + 1.5X_2 + \varepsilon$.]{.tiny}
+
+```{ojs}
+html`<div class="readout" style="font-size:0.95em">${labTable.map(d => `<div>${d.metodo}: sesgo <b>${d.sesgo.toFixed(2)}</b>, DE ${d.de.toFixed(2)}</div>`).join("")}
+<div style="margin-top:6px">${labBadE && labBadMu ? "Ambos modelos fallan: ni siquiera AIPW se salva." : (labBadE || labBadMu) ? "Un modelo falla, pero <b>AIPW</b> sigue centrado en 2: doble robustez." : "Todo bien especificado: los tres ajustes funcionan; AIPW tiene varianza baja."}</div></div>`
+```
+:::
+::: {.column width="60%"}
+```{ojs}
+labRes = {
+  const rng = mulberry32(99), out = [];
+  for (let r = 0; r < 100; r++) {
+    const n = labN, X1 = [], X2 = [], T = [], Y = [];
+    for (let i = 0; i < n; i++) {
+      const x1 = randn(rng), x2 = randn(rng);
+      const t = rng() < expit(labGamma * (0.7 * x1 + 0.9 * x2)) ? 1 : 0;
+      X1.push(x1); X2.push(x2); T.push(t); Y.push(1 + 2 * t + x1 + 1.5 * x2 + randn(rng));
+    }
+    const rowE = i => labBadE ? [1, X1[i]] : [1, X1[i], X2[i]];
+    const rowMu = (i, t) => labBadMu ? [1, t, X1[i]] : [1, t, X1[i], X2[i]];
+    const bE = logitFit(T.map((_, i) => rowE(i)), T);
+    const bMu = olsFit(T.map((t, i) => rowMu(i, t)), Y);
+    const dot = (a, b) => a.reduce((s, v, k) => s + v * b[k], 0);
+    let m1 = 0, m0 = 0, n1 = 0, sw1 = 0, sw0 = 0, sy1 = 0, sy0 = 0, aipw = 0;
+    for (let i = 0; i < n; i++) {
+      const e = Math.min(0.995, Math.max(0.005, expit(dot(bE, rowE(i)))));
+      const mu1 = dot(bMu, rowMu(i, 1)), mu0 = dot(bMu, rowMu(i, 0));
+      if (T[i]) { m1 += Y[i]; n1++; sw1 += 1 / e; sy1 += Y[i] / e; }
+      else { m0 += Y[i]; sw0 += 1 / (1 - e); sy0 += Y[i] / (1 - e); }
+      aipw += mu1 - mu0 + T[i] * (Y[i] - mu1) / e - (1 - T[i]) * (Y[i] - mu0) / (1 - e);
+    }
+    out.push({metodo: "Ingenuo", est: m1 / n1 - m0 / (n - n1)});
+    out.push({metodo: "Regresión", est: bMu[1]});
+    out.push({metodo: "IPW (Hajek)", est: sy1 / sw1 - sy0 / sw0});
+    out.push({metodo: "AIPW", est: aipw / n});
+  }
+  return out;
+}
+labTable = d3.groups(labRes, d => d.metodo).map(([metodo, v]) => ({
+  metodo, sesgo: d3.mean(v, d => d.est) - 2, de: d3.deviation(v, d => d.est)
+}))
+Plot.plot({
+  width: 700, height: 360, marginLeft: 100,
+  x: {domain: [0.5, 5.5], label: "Estimación del efecto (100 réplicas)", grid: true},
+  y: {domain: ["Ingenuo", "Regresión", "IPW (Hajek)", "AIPW"], label: null},
+  color: {domain: ["Ingenuo", "Regresión", "IPW (Hajek)", "AIPW"], range: ["#9aa3b5", "#14213d", "#c8742b", "#2e8b57"]},
+  marks: [
+    Plot.ruleX([2], {stroke: "#2e8b57", strokeWidth: 2, strokeDasharray: "6 4"}),
+    Plot.boxX(labRes, {x: "est", y: "metodo", fill: "metodo", fillOpacity: 0.35, stroke: "metodo"}),
+  ]
+})
+```
+:::
+::::
+
+## Aprendizaje automático y doble desviación {.smaller}
+
+- Función de influencia eficiente del ATE: $\psi = \mu_1 - \mu_0 + \frac{T(Y - \mu_1)}{e} - \frac{(1-T)(Y - \mu_0)}{1-e} - \tau$; su varianza es la cota semiparamétrica de eficiencia.
+- **DML** (Chernozhukov et al., 2018): estimación de $\mu_t, e$ con ML y *cross-fitting*; ortogonalidad de Neyman da $\sqrt{n}$-consistencia si los errores de los *nuisance* son $o_p(n^{-1/4})$ en producto.
+- **TMLE** (van der Laan): paso de actualización dirigida que preserva cotas del resultado.
+- **Bosques causales** (Wager–Athey): estimación de $\text{CATE}(x)$ con inferencia asintótica.
+
+::: {.panel-tabset}
+### R · DoubleML
+
+```r
+library(DoubleML); library(mlr3); library(mlr3learners)
+dml_data <- DoubleMLData$new(d, y_col = "Y", d_cols = "T", x_cols = c("X1", "X2"))
+irm <- DoubleMLIRM$new(dml_data, ml_g = lrn("regr.ranger"),
+                       ml_m = lrn("classif.ranger"), n_folds = 5)
+irm$fit(); irm$summary()
+```
+
+### R · grf
+
+```r
+library(grf)
+cf <- causal_forest(X = as.matrix(d[, c("X1", "X2")]), Y = d$Y, W = d$T)
+average_treatment_effect(cf, target.sample = "all")   # AIPW con bosques
+tau_x <- predict(cf)$predictions                       # CATE(x_i)
+```
+
+### Python · DoubleML
+
+```python
+import doubleml as dml
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+data = dml.DoubleMLData(df, y_col="Y", d_cols="T", x_cols=["X1", "X2"])
+irm = dml.DoubleMLIRM(data, ml_g=RandomForestRegressor(), ml_m=RandomForestClassifier(), n_folds=5)
+irm.fit(); print(irm.summary)
+```
+:::
+
+## Diferencias en diferencias
+
+$$
+\tau_{\text{DiD}} = \big(\mathbb{E}[Y_1 \mid T=1] - \mathbb{E}[Y_0 \mid T=1]\big) - \big(\mathbb{E}[Y_1 \mid T=0] - \mathbb{E}[Y_0 \mid T=0]\big)
+$$
+
+::: {.block .theorem data-title="Teorema 14"}
+Bajo tendencias paralelas, $\mathbb{E}[Y_1(0) - Y_0(0) \mid T=1] = \mathbb{E}[Y_1(0) - Y_0(0) \mid T=0]$, y sin anticipación, $\tau_{\text{DiD}} = \text{ATT}$.
+:::
+
+- Con adopción escalonada, el TWFE puede dar pesos negativos; usar Callaway–Sant'Anna, Sun–Abraham o de Chaisemartin–D'Haultfœuille.
+- Se verifican pre-tendencias con estudios de eventos.
+
+```r
+library(did)
+out <- att_gt(yname = "y", tname = "anio", idname = "id", gname = "primer_trat",
+              data = panel, control_group = "notyettreated")
+ggdid(aggte(out, type = "dynamic"))   # estudio de eventos: pre-tendencias ≈ 0
+```
+
+## Variables instrumentales
+
+Instrumento $Z$ con: relevancia $\operatorname{Cov}(Z, T) \neq 0$; independencia $Z \perp\!\!\!\perp (Y(t), T(z))$; exclusión $Y(t, z) = Y(t)$; monotonicidad $T(1) \geq T(0)$.
+
+::: {.block .theorem data-title="Teorema 15 (LATE, Imbens–Angrist)"}
+$$\frac{\mathbb{E}[Y \mid Z=1] - \mathbb{E}[Y \mid Z=0]}{\mathbb{E}[T \mid Z=1] - \mathbb{E}[T \mid Z=0]} = \mathbb{E}[Y(1) - Y(0) \mid T(1) > T(0)].$$
+:::
+
+- Estima el efecto sobre los *cumplidores*, no el ATE.
+- Instrumentos débiles: sesgo hacia MCO e inferencia no estándar (F de primera etapa, Anderson–Rubin).
+
+```r
+library(fixest)
+iv <- feols(Y ~ X1 | T ~ Z, data = d)      # MC2E
+summary(iv); fitstat(iv, ~ ivf + ivwald)    # F de primera etapa
+```
+
+## Diseño de regresión discontinua y control sintético
+
+**RDD** con variable de asignación $X$ y umbral $c$:
+$$\tau_{\text{RD}} = \lim_{x \downarrow c} \mathbb{E}[Y \mid X = x] - \lim_{x \uparrow c} \mathbb{E}[Y \mid X = x],$$
+identificado si $\mathbb{E}[Y(t) \mid X = x]$ es continua en $c$. Se estima con regresión local, ancho de banda óptimo (Imbens–Kalyanaraman; Calonico–Cattaneo–Titiunik). Se prueba continuidad de la densidad (McCrary).
+
+**Control sintético**: pesos $w_j \geq 0$, $\sum w_j = 1$ minimizando $\|X_1 - X_0 w\|$; el contrafactual es $\sum_j w_j Y_{jt}$. Inferencia mediante pruebas de placebo.
+
+## RDD en vivo: el ancho de banda {.smaller}
+
+:::: {.columns}
+::: {.column width="62%"}
+```{ojs}
+viewof rdH = Inputs.range([0.05, 1], {value: 0.3, step: 0.01, label: "Ancho de banda h"})
+```
+
+```{ojs}
+rdData = {
+  const rng = mulberry32(17), out = [];
+  for (let i = 0; i < 600; i++) {
+    const x = 2 * rng() - 1;
+    out.push({x, y: 0.4 + 0.9 * x - 0.9 * x * x + 0.5 * (x >= 0) + 0.25 * randn(rng)});
+  }
+  return out;
+}
+rdFit = {
+  const side = (s) => {
+    let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, k = 0;
+    for (const d of rdData) {
+      if ((s > 0) !== (d.x >= 0) || Math.abs(d.x) >= rdH) continue;
+      const w = 1 - Math.abs(d.x) / rdH; k++;
+      sw += w; sx += w * d.x; sy += w * d.y; sxx += w * d.x * d.x; sxy += w * d.x * d.y;
+    }
+    const b = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), a = (sy - b * sx) / sw;
+    return {a, b, k};
+  };
+  const L = side(-1), R = side(1);
+  return {L, R, tau: R.a - L.a};
+}
+Plot.plot({
+  width: 700, height: 340, grid: true,
+  x: {domain: [-1, 1], label: "Variable de asignación X (umbral c = 0)"}, y: {label: "Y"},
+  marks: [
+    Plot.rectY([{x1: -rdH, x2: rdH}], {x1: "x1", x2: "x2", y1: -1, y2: 1.6, fill: "#c8742b", fillOpacity: 0.08}),
+    Plot.dot(rdData, {x: "x", y: "y", r: 2, fill: d => Math.abs(d.x) < rdH ? "#14213d" : "#c3c9d6"}),
+    Plot.line([[-rdH, rdFit.L.a - rdFit.L.b * rdH], [0, rdFit.L.a]], {stroke: "#c8742b", strokeWidth: 3}),
+    Plot.line([[0, rdFit.R.a], [rdH, rdFit.R.a + rdFit.R.b * rdH]], {stroke: "#c8742b", strokeWidth: 3}),
+    Plot.ruleX([0], {strokeDasharray: "4 3"})
+  ]
+})
+```
+:::
+::: {.column width="38%"}
+```{ojs}
+html`<div class="readout">τ̂<sub>RD</sub> = <b>${rdFit.tau.toFixed(3)}</b> (verdad: 0.5)<br>
+Observaciones usadas: ${rdFit.L.k + rdFit.R.k}<br><br>
+${rdH > 0.6 ? "h grande: más datos, pero la curvatura sesga la regresión local." : rdH < 0.12 ? "h pequeño: poco sesgo, pero mucha varianza." : "Compromiso sesgo–varianza razonable."}</div>`
+```
+
+Regresión lineal local con kernel triangular a cada lado del umbral. `rdrobust` elige $h$ de forma óptima y corrige el sesgo:
+
+```r
+library(rdrobust); library(rddensity)
+summary(rdrobust(y, x, c = 0))   # h óptimo + IC robusto
+rdplot(y, x, c = 0)
+summary(rddensity(x, c = 0))     # manipulación
+```
+:::
+::::
+
+## Sensibilidad a confusión no observada {.smaller}
+
+- **Límites de Rosenbaum**: parámetro $\Gamma$ tal que $\frac{1}{\Gamma} \leq \frac{e(x)/(1 - e(x))}{e(x')/(1 - e(x'))} \leq \Gamma$ si $x = x'$ en lo observado.
+- **Valor E** (VanderWeele–Ding): $E = \text{RR} + \sqrt{\text{RR}(\text{RR} - 1)}$, la fuerza mínima de asociación de un confusor con $T$ y $Y$ que anularía el efecto.
+- **Cinelli–Hazlett**: $R^2_{Y \sim U \mid T, X}$ y $R^2_{T \sim U \mid X}$ como contornos de sensibilidad.
+- **Límites de Manski**: acotación sin supuestos de ignorabilidad.
+
+:::: {.columns}
+::: {.column width="55%"}
+```{ojs}
+viewof rrObs = Inputs.range([1.05, 5], {value: 2, step: 0.05, label: "RR observado"})
+```
+```{ojs}
+{
+  const E = rrObs + Math.sqrt(rrObs * (rrObs - 1));
+  const curve = d3.range(rrObs + 0.02, 12, 0.02).map(u => ({u, v: rrObs * (u - 1) / (u - rrObs)})).filter(d => d.v <= 12);
+  return Plot.plot({
+    width: 560, height: 250, grid: true,
+    x: {domain: [1, 12], label: "RR confusor–resultado"}, y: {domain: [1, 12], label: "RR confusor–tratamiento"},
+    marks: [
+      Plot.areaY(curve, {x: "u", y1: "v", y2: 12, fill: "#c8742b", fillOpacity: 0.15}),
+      Plot.line(curve, {x: "u", y: "v", stroke: "#c8742b", strokeWidth: 2.5}),
+      Plot.dot([{E}], {x: "E", y: "E", r: 6, fill: "#14213d"}),
+      Plot.text([{E}], {x: "E", y: "E", text: d => `E = ${d.E.toFixed(2)}`, dx: 40, dy: -10, fontWeight: 600})
+    ]
+  });
+}
+```
+:::
+::: {.column width="45%"}
+[La zona sombreada contiene los confusores lo bastante fuertes para explicar todo el efecto observado.]{.small}
+
+```r
+library(EValue); library(sensemakr)
+evalues.RR(est = 2.0, lo = 1.5, hi = 2.7)
+s <- sensemakr(lm(Y ~ T + X1 + X2, d),
+      treatment = "T",
+      benchmark_covariates = "X1", kd = 1:3)
+plot(s)   # contornos de Cinelli–Hazlett
+```
+:::
+::::
+
+## Inferencia clásica
+
+- **Normalidad asintótica**: $\sqrt{n}(\hat\tau - \tau) \to N(0, V)$, con $V = \mathbb{V}(\psi)$ para estimadores eficientes.
+- **Varianza sandwich** (Huber–White) para modelos mal especificados.
+- **Bootstrap**: válido para IPW/AIPW suaves; no válido para emparejamiento con reemplazo de vecino más cercano.
+- **Intervalos de confianza**: cubren $\tau$ en $100(1-\alpha)\,\%$ de repeticiones del muestreo, no dan probabilidad sobre $\tau$ dado un conjunto de datos.
+- **Inferencia por aleatorización** (Fisher) para muestras pequeñas.
+
+## ¿Qué significa «95 % de confianza»? {.smaller}
+
+:::: {.columns}
+::: {.column width="62%"}
+```{ojs}
+viewof ciDraw = Inputs.button("Nuevas 50 muestras")
+viewof ciLevel = Inputs.radio([0.80, 0.90, 0.95, 0.99], {value: 0.95, label: "Nivel", format: d => `${100 * d}%`})
+```
+
+```{ojs}
+ciRows = {
+  const rng = mulberry32(1000 + ciDraw), n = 25, z = qnorm(1 - (1 - ciLevel) / 2), rows = [];
+  for (let k = 0; k < 50; k++) {
+    let s = 0; for (let i = 0; i < n; i++) s += 2 + randn(rng);
+    const m = s / n, h = z / Math.sqrt(n);
+    rows.push({k, lo: m - h, hi: m + h, m, cubre: m - h <= 2 && 2 <= m + h});
+  }
+  return rows;
+}
+Plot.plot({
+  width: 700, height: 380, x: {domain: [1, 3], label: "τ", grid: true}, y: {axis: null},
+  color: {domain: [true, false], range: ["#14213d", "#d1495b"]},
+  marks: [
+    Plot.ruleX([2], {stroke: "#2e8b57", strokeWidth: 2}),
+    Plot.link(ciRows, {x1: "lo", x2: "hi", y1: "k", y2: "k", stroke: "cubre", strokeWidth: 2}),
+    Plot.dot(ciRows, {x: "m", y: "k", r: 2.5, fill: "cubre"})
+  ]
+})
+```
+:::
+::: {.column width="38%"}
+```{ojs}
+html`<div class="readout">Intervalos que cubren τ = 2: <b>${ciRows.filter(d => d.cubre).length} de 50</b><br>(nominal: ${100 * ciLevel}%)</div>`
+```
+
+La probabilidad se refiere al **procedimiento** en muestreos repetidos. Cada intervalo concreto cubre o no cubre $\tau$; en rojo, los que fallan.
+
+La pregunta «¿qué probabilidad tiene $\tau > 0$ con *estos* datos?» es bayesiana →
+:::
+::::
+
+# Inferencia causal bayesiana {.section-title background-color="#14213d"}
+
+## Perspectiva bayesiana de Rubin
+
+- Los resultados potenciales faltantes $Y_{\text{mis}}$ se tratan como cantidades desconocidas con distribución posterior.
+- Modelo: $p(Y(0), Y(1), X, T) = p(Y(0), Y(1), X \mid \theta)\, p(T \mid Y(0), Y(1), X, \phi)$ con $\theta, \phi$ *a priori* independientes.
+- Un estimando $\tau = \tau(Y(0), Y(1))$ hereda una distribución posterior:
+$$p(\tau \mid D) = \iint p(\tau \mid Y_{\text{obs}}, Y_{\text{mis}}, \theta)\, p(Y_{\text{mis}} \mid D, \theta)\, p(\theta \mid D)\, dY_{\text{mis}}\, d\theta.$$
+
+## Ignorabilidad del mecanismo de asignación
+
+::: {.block .theorem data-title="Teorema 16 (Rubin, 1978)"}
+Si $p(T \mid Y(0), Y(1), X, \phi) = p(T \mid X, \phi)$ y $\theta \perp\!\!\!\perp \phi$ *a priori*, entonces la posterior de $\theta$ no depende de $\phi$ ni del modelo de asignación:
+$$p(\theta \mid X, Y_{\text{obs}}, T) \propto p(\theta) \int p(Y_{\text{obs}}, Y_{\text{mis}}, X \mid \theta)\, dY_{\text{mis}}.$$
+:::
+
+- La inferencia sobre $\theta$ puede hacerse sin modelar $T$ cuando la asignación es ignorable.
+- La no ignorabilidad requiere modelar conjuntamente $(Y, T)$ con priors informativos.
+
+## Modelo de resultados bayesiano
+
+$$Y_i \mid T_i, X_i, \theta \sim N(\mu_{T_i}(X_i), \sigma^2), \qquad \mu_t(x) = \alpha_t + x^\top \beta_t.$$
+
+Priors: $\beta \sim N(\mu_0, \Sigma_0)$, $\sigma^2 \sim \text{Inv-}\chi^2$. Con $\sigma^2$ conocida:
+
+$$\beta \mid D \sim N(m, S), \quad S = \Big(\frac{X^\top X}{\sigma^2} + \Sigma_0^{-1}\Big)^{-1}, \quad m = S\Big(\frac{X^\top y}{\sigma^2} + \Sigma_0^{-1}\mu_0\Big).$$
+
+La media posterior es un promedio ponderado por precisión entre el prior y el estimador de mínimos cuadrados: contracción hacia $\mu_0$.
+
+## La posterior conjugada en 3D {data-menu-title="Posterior 3D"}
+
+::: {.three-stage data-three="bayes" data-prevent-swipe="" style="height: 560px"}
+:::
+
+[Modelo $y = \alpha + \tau T + \varepsilon$ con prior $N(0, s_0^2 I)$. Con **pocos datos o prior estrecho**, la posterior se queda cerca de $\mu_0 = 0$; con **más datos**, se concentra en torno a MCO y a la verdad.]{.small .muted}
+
+## G-computación bayesiana
+
+Para cada extracción posterior $\theta^{(s)} \sim p(\theta \mid D)$:
+
+1. Predecir $\tilde Y_i(1)$ y $\tilde Y_i(0)$ para toda unidad con la predictiva posterior (o la media condicional).
+2. Calcular $\tau^{(s)} = \frac{1}{n} \sum_i \big[\tilde Y_i(1) - \tilde Y_i(0)\big]$ (ATE de muestra), o promediar sobre $p(x)$ (ATE poblacional).
+
+El conjunto $\{\tau^{(s)}\}$ aproxima $p(\tau \mid D)$. Resumen: media, mediana, intervalo creíble 95 %, HPD y $\mathbb{P}(\tau > 0 \mid D)$.
+
+::: {.block .alert data-title="Distinción"}
+ATE de muestra incorpora la incertidumbre de $Y_{\text{mis}}$; el poblacional agrega la de la distribución de $X$.
+:::
+
+## En código: g-computación bayesiana
+
+::: {.panel-tabset}
+### R · brms
+
+```r
+library(brms)
+fit <- brm(Y ~ T * (X1 + X2), data = d, family = gaussian(),
+           prior = prior(normal(0, 5), class = "b"), chains = 4, cores = 4)
+
+mu1 <- posterior_epred(fit, newdata = transform(d, T = 1))   # S x n
+mu0 <- posterior_epred(fit, newdata = transform(d, T = 0))
+tau <- rowMeans(mu1 - mu0)                                   # extracciones de p(ATE | D)
+c(media = mean(tau), quantile(tau, c(.025, .975)), P_pos = mean(tau > 0))
+```
+
+### Python · PyMC
+
+```python
+import numpy as np, pymc as pm
+
+with pm.Model():
+    a = pm.Normal("a", 0, 5); tau = pm.Normal("tau", 0, 5)
+    b = pm.Normal("b", 0, 5, shape=2); g = pm.Normal("g", 0, 5, shape=2)   # T × X
+    s = pm.HalfNormal("s", 2)
+    mu = a + tau * T + X @ b + T * (X @ g)
+    pm.Normal("y", mu, s, observed=Y)
+    idata = pm.sample()
+
+post = idata.posterior
+ate = post["tau"].values + post["g"].values @ X.mean(axis=0)   # ATE de muestra (media cond.)
+print(ate.mean(), np.quantile(ate, [0.025, 0.975]), (ate > 0).mean())
+```
+
+### R base (conjugado)
+
+```r
+X  <- model.matrix(~ T * (X1 + X2), d);  S0 <- diag(25, ncol(X))
+s2 <- summary(lm(Y ~ T * (X1 + X2), d))$sigma^2
+S  <- solve(crossprod(X) / s2 + solve(S0));  m <- S %*% crossprod(X, Y) / s2
+B  <- matrix(rnorm(4000 * ncol(X)), 4000) %*% chol(S) + rep(1, 4000) %o% drop(m)
+D  <- colMeans(model.matrix(~ T * (X1 + X2), transform(d, T = 1)) -
+               model.matrix(~ T * (X1 + X2), transform(d, T = 0)))
+tau <- drop(B %*% D);  quantile(tau, c(.025, .5, .975))
+```
+:::
+
+[Script completo y verificado (R base): [`code/inferencia_causal.R`](code/inferencia_causal.R).]{.code-note}
+
+## Priors y regularización
+
+- **Priors débilmente informativos**: $N(0, 5^2)$ sobre coeficientes estandarizados.
+- **Priors de contracción** para heterogeneidad: horseshoe, Laplace, regularized horseshoe.
+- **Priors jerárquicos**: $\tau_g \sim N(\tau, \sigma_\tau^2)$ pooling parcial en subgrupos.
+- **Priors sobre el sesgo**: un parámetro de sesgo por confusión no observada con prior informativo, para propagar esa incertidumbre a $\tau$.
+- Se recomienda análisis de sensibilidad al prior y predictivas previas.
+
+```r
+prior(horseshoe(df = 1, par_ratio = 0.1), class = "b")       # brms: contracción
+bf(Y ~ T + X1 + X2 + (1 + T | grupo))                          # pooling parcial de tau_g
+brm(..., sample_prior = "only")                                # predictiva previa
+```
+
+## Modelos no paramétricos: BART
+
+$$f(t, x) = \sum_{j=1}^m g(t, x; \mathcal{T}_j, \mathcal{M}_j), \qquad Y = f(T, X) + \varepsilon, \ \varepsilon \sim N(0, \sigma^2)$$
+
+- Prior de regularización sobre profundidad de árboles y magnitud de hojas: cada árbol explica poco.
+- $\tau(x) = f(1, x) - f(0, x)$ con posterior sobre $\text{CATE}(x)$; Hill (2011).
+- Inclusión del puntaje de propensión como covariable mejora la estimación bajo confusión fuerte (Hahn, Murray y Carvalho: *BCF*).
+- Incertidumbre calibrada en extrapolación fuera del soporte común: los intervalos ensanchan.
+
+```r
+library(bartCause)
+fit <- bartc(response = Y, treatment = T, confounders = X1 + X2, data = d,
+             estimand = "ate", method.trt = "glm")   # ê(x) como covariable
+summary(fit);  cate <- fitted(fit, type = "icate")  # posterior de CATE(x_i)
+```
+
+## Puntaje de propensión y retroalimentación
+
+- Estimación bayesiana de $e(x)$ propaga su incertidumbre a $\tau$.
+- **Problema de retroalimentación**: $Y$ contamina la posterior de $e$ si se modela conjuntamente; solución: *cut* o modelo en dos etapas.
+- Aunque la verosimilitud no depende de $e$ bajo ignorabilidad, incluir $\hat e(X)$ como covariable protege frente a mala especificación del resultado (Robins–Ritov).
+- Un estimador de IPW bayesiano usa el *bootstrap bayesiano* (Dirichlet) sobre pesos.
+
+```r
+bb <- replicate(2000, {
+  g  <- rexp(n)                         # pesos Dirichlet(1, ..., 1) sin normalizar
+  a1 <- g * T / ps; a0 <- g * (1 - T) / (1 - ps)
+  sum(a1 * Y) / sum(a1) - sum(a0 * Y) / sum(a0)
+})
+quantile(bb, c(.025, .975))
+```
+
+## Variables instrumentales y DiD bayesianos
+
+- **IV bayesiano**: modelo conjunto $T = \gamma_0 + \gamma_1 Z + \nu$, $Y = \alpha + \tau T + \varepsilon$ con $(\nu, \varepsilon) \sim N(0, \Sigma)$; posterior sobre $\tau$ y la correlación de errores. Priors debilitan problemas de instrumentos débiles.
+- **DiD bayesiano / series temporales estructurales**: contrafactual $\tilde Y_t(0)$ predicho con modelo de espacio de estados (CausalImpact, Brodersen et al.).
+- **Control sintético bayesiano**: pesos con prior Dirichlet.
+- **Efectos de tratamiento heterogéneos**: modelos jerárquicos en subgrupos.
+
+```r
+library(CausalImpact)
+impact <- CausalImpact(serie, pre.period = c(1, 70), post.period = c(71, 100))
+summary(impact); plot(impact)
+```
+
+## Diagnósticos y verificación del modelo
+
+- **Convergencia MCMC**: $\hat R < 1{,}01$, tamaño efectivo de muestra $> 400$ por parámetro, sin divergencias en NUTS.
+- **Chequeos predictivos posteriores**: comparar $y^{\text{rep}} \sim p(y \mid D)$ con $y$.
+- **Validación cruzada**: LOO-CV (PSIS) para comparar especificaciones de $\mu_t$.
+- **Sensibilidad**: variar prior, especificación del resultado, conjunto de covariables.
+- **Soporte común**: revisar solapamiento de $\hat e(x)$ entre grupos.
+
+```r
+library(posterior)
+summarise_draws(as_draws_df(fit), "rhat", "ess_bulk", "ess_tail")
+pp_check(fit, ndraws = 50)                           # chequeo predictivo posterior
+loo_compare(loo(fit), loo(fit_sin_interacciones))   # PSIS-LOO
+```
+
+## Decisión con la posterior causal
+
+- $\mathbb{P}(\tau > 0 \mid D)$ y $\mathbb{P}(\tau > \delta \mid D)$ para un umbral clínicamente relevante $\delta$.
+- **ROPE**: región de equivalencia práctica $[-\delta, \delta]$; se compara la masa posterior dentro y fuera.
+- **Teoría de decisión**: elegir la acción $a$ que maximiza $\int U(a, \tau)\, p(\tau \mid D)\, d\tau$.
+- **Valor de la información**: coste esperado de la incertidumbre residual.
+- **Reglas de parada** bayesianas en ensayos adaptativos, sin penalización por mirar los datos.
+
+## Prior × verosimilitud → decisión {.smaller}
+
+:::: {.columns}
+::: {.column width="36%"}
+```{ojs}
+viewof bm0 = Inputs.range([-2, 2], {value: 0, step: 0.05, label: "Media a priori"})
+viewof bs0 = Inputs.range([0.1, 3], {value: 1, step: 0.05, label: "DE a priori"})
+viewof bhat = Inputs.range([-1, 3], {value: 0.6, step: 0.05, label: "τ̂ (datos)"})
+viewof bse = Inputs.range([0.05, 1.5], {value: 0.4, step: 0.05, label: "Error estándar"})
+viewof bdelta = Inputs.range([0, 1], {value: 0.2, step: 0.05, label: "Umbral δ (ROPE)"})
+```
+
+```{ojs}
+bpost = {
+  const p = 1 / bs0 ** 2 + 1 / bse ** 2, m = (bm0 / bs0 ** 2 + bhat / bse ** 2) / p, s = Math.sqrt(1 / p);
+  return {m, s, pPos: 1 - pnorm(-m / s), pDelta: 1 - pnorm((bdelta - m) / s),
+          pRope: pnorm((bdelta - m) / s) - pnorm((-bdelta - m) / s),
+          lo: m - 1.96 * s, hi: m + 1.96 * s};
+}
+html`<div class="readout">
+  Posterior: N(<b>${bpost.m.toFixed(2)}</b>, ${bpost.s.toFixed(2)}²)<br>
+  IC creíble 95%: [${bpost.lo.toFixed(2)}, ${bpost.hi.toFixed(2)}]<br>
+  P(τ > 0 | D) = <b>${bpost.pPos.toFixed(3)}</b><br>
+  P(τ > δ | D) = <b>${bpost.pDelta.toFixed(3)}</b><br>
+  P(|τ| < δ | D) = <b>${bpost.pRope.toFixed(3)}</b> (ROPE)
+</div>`
+```
+:::
+::: {.column width="64%"}
+```{ojs}
+{
+  const xs = d3.range(-3, 4.001, 0.02);
+  const dens = (m, s) => xs.map(x => ({x, y: dnorm((x - m) / s) / s}));
+  const curves = [
+    ...dens(bm0, bs0).map(d => ({...d, curva: "Prior"})),
+    ...dens(bhat, bse).map(d => ({...d, curva: "Verosimilitud"})),
+    ...dens(bpost.m, bpost.s).map(d => ({...d, curva: "Posterior"}))
+  ];
+  const post = dens(bpost.m, bpost.s);
+  return Plot.plot({
+    width: 760, height: 430, grid: true,
+    x: {label: "τ"}, y: {label: "densidad"},
+    color: {domain: ["Prior", "Verosimilitud", "Posterior"], range: ["#6f8fcf", "#9aa3b5", "#c8742b"], legend: true},
+    marks: [
+      Plot.rectX([{a: -bdelta, b: bdelta}], {x1: "a", x2: "b", fill: "#2e8b57", fillOpacity: 0.12}),
+      Plot.areaY(post.filter(d => d.x >= bdelta), {x: "x", y: "y", fill: "#c8742b", fillOpacity: 0.3}),
+      Plot.line(curves, {x: "x", y: "y", stroke: "curva", strokeWidth: d => 2}),
+      Plot.ruleX([0], {stroke: "#555"}),
+      Plot.ruleY([0])
+    ]
+  });
+}
+```
+[Banda verde: ROPE $[-\delta, \delta]$. Área naranja: $\mathbb{P}(\tau > \delta \mid D)$.]{.tiny}
+:::
+::::
+
+# Comparación y cierre {.section-title background-color="#14213d"}
+
+## Clásica frente a bayesiana
+
+| Aspecto | Clásica | Bayesiana |
+|:--------|:--------|:----------|
+| Parámetro | Fijo y desconocido | Variable aleatoria |
+| Contrafactual | Dato faltante, no se modela | Se imputa desde la predictiva |
+| Incertidumbre | Distribución muestral | Distribución posterior |
+| Intervalo | Confianza | Credibilidad |
+| Información previa | No entra formalmente | Priors explícitos |
+| Muestras pequeñas | Resultados asintóticos | Inferencia exacta dado el modelo |
+| Robustez | Doble robustez, eficiencia | Depende del modelo y del prior |
+
+## Identificación frente a estimación
+
+- La identificación es un problema de *población*: ¿Se puede escribir el estimando como funcional de $P(\text{observable})$?
+- La estimación e inferencia son problemas de *muestra*: ¿Cómo estimar el funcional y cuantificar el error?
+- Los priors y la regularización controlan la varianza, [no]{.hl} arreglan la falta de identificación.
+- En el caso parcialmente identificado, la posterior no se concentra en un punto: converge a una región del conjunto identificado y el prior sigue influyendo asintóticamente.
+
+## Flujo de trabajo recomendado
+
+1. Definir la pregunta, el estimando y la población objetivo.
+2. Dibujar el DAG y justificar el conjunto de ajuste con conocimiento sustantivo.
+3. Verificar positividad y solapamiento.
+4. Estimar con varios métodos (regresión, IPW, AIPW/DML, bayesiano).
+5. Evaluar balance, diagnósticos y especificación.
+6. Cuantificar sensibilidad a confusión no observada.
+7. Reportar efectos con incertidumbre y supuestos explícitos.
+
+## Conclusiones
+
+- La causalidad se define con resultados potenciales o SCM; la identificación depende de supuestos.
+- El ajuste correcto proviene del grafo, no de incluir todas las covariables.
+- AIPW/DML ofrecen eficiencia y doble robustez; los métodos bayesianos entregan distribuciones posteriores y manejan incertidumbre de manera natural.
+- La sensibilidad es parte del análisis, no un anexo.
+
+El código en R de esta versión ([`code/inferencia_causal.R`](code/inferencia_causal.R)) implementa MCO/FWL, g-computación, IPW, AIPW, emparejamiento, g-computación bayesiana y bootstrap bayesiano sobre datos simulados.
+
+## Referencias I {.smaller}
+
+- Rubin, D. (1974). Estimating causal effects of treatments in randomized and nonrandomized studies. *J. Educ. Psych.*
+- Rubin, D. (1978). Bayesian inference for causal effects. *Ann. Stat.*
+- Rosenbaum, P. y Rubin, D. (1983). The central role of the propensity score. *Biometrika*.
+- Pearl, J. (2009). *Causality*, 2.ª ed. Cambridge UP.
+- Imbens, G. y Rubin, D. (2015). *Causal Inference for Statistics, Social, and Biomedical Sciences*. Cambridge UP.
+- Hernán, M. y Robins, J. (2020). *Causal Inference: What If*. CRC Press.
+- Imbens, G. y Angrist, J. (1994). Identification and estimation of local average treatment effects. *Econometrica*.
+- Robins, J., Rotnitzky, A. y Zhao, L. (1994). Estimation of regression coefficients when some regressors are not always observed. *JASA*.
+
+## Referencias II {.smaller}
+
+- Chernozhukov, V. et al. (2018). Double/debiased machine learning. *Econometrics J.*
+- Hill, J. (2011). Bayesian nonparametric modeling for causal inference. *JCGS*.
+- Hahn, P., Murray, J. y Carvalho, C. (2020). Bayesian regression tree models for causal inference. *Bayesian Analysis*.
+- Shpitser, I. y Pearl, J. (2006). Identification of joint interventional distributions in recursive semi-Markovian causal models. *AAAI*.
+- VanderWeele, T. y Ding, P. (2017). Sensitivity analysis in observational research: introducing the E-value. *Ann. Intern. Med.*
+- Wager, S. y Athey, S. (2018). Estimation and inference of heterogeneous treatment effects using random forests. *JASA*.
+
+```{ojs}
+//| output: false
+mulberry32 = (seed) => {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+randn = (rng) => { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+expit = (x) => 1 / (1 + Math.exp(-x))
+dnorm = (z) => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI)
+pnorm = (z) => {
+  // Abramowitz–Stegun 26.2.17
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const p = dnorm(z) * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return z >= 0 ? 1 - p : p;
+}
+qnorm = (p) => {
+  let lo = -10, hi = 10;
+  for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (pnorm(mid) < p) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+solveLin = (A, b) => {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((r, i) => r[n] / r[i]);
+}
+olsFit = (X, y, w) => {
+  const p = X[0].length, A = Array.from({length: p}, () => new Array(p).fill(0)), b = new Array(p).fill(0);
+  X.forEach((x, i) => { const wi = w ? w[i] : 1; for (let j = 0; j < p; j++) { b[j] += wi * x[j] * y[i]; for (let k = 0; k < p; k++) A[j][k] += wi * x[j] * x[k]; } });
+  return solveLin(A, b);
+}
+logitFit = (X, y) => {
+  let beta = new Array(X[0].length).fill(0);
+  for (let it = 0; it < 12; it++) {
+    const w = [], z = [];
+    X.forEach((x, i) => {
+      const eta = x.reduce((s, v, k) => s + v * beta[k], 0), mu = Math.min(1 - 1e-6, Math.max(1e-6, expit(eta))), wi = mu * (1 - mu);
+      w.push(wi); z.push(eta + (y[i] - mu) / wi);
+    });
+    beta = olsFit(X, z, w);
+  }
+  return beta;
+}
+```
