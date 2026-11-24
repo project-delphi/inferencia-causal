@@ -41,7 +41,7 @@ execute:
 
 [Jhonier Rangel · Ravi Kalia, PhD · 14 de noviembre de 2026]{.byline}
 
-[Versión interactiva · <kbd>→</kbd> avanzar · <kbd>F</kbd> pantalla completa · <kbd>M</kbd> menú · <kbd>S</kbd> notas · [English version](index.en.html){.langlink}]{.hint}
+[Versión interactiva · <kbd>→</kbd> avanzar · <kbd>F</kbd> pantalla completa · <kbd>M</kbd> menú · <kbd>S</kbd> notas · [English version](index.en.html){.langlink lang="en"}]{.hint}
 :::
 
 ## Contenido

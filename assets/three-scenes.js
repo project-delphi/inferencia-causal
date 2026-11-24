@@ -311,6 +311,10 @@ function dagScene(el) {
     const opened = () => `<span class="bad">${tr('open', 'abierto')}</span>`;
     const blocked = () => `<span class="ok">${tr('blocked', 'bloqueado')}</span>`;
     const tag = (isOpen) => (isOpen ? opened() : blocked());
+    // A causal path being open is good news; a backdoor being open is bad news.
+    const causalTag = (isOpen) => (isOpen
+      ? `<span class="ok">${tr('open', 'abierto')}</span>`
+      : `<span class="bad">${tr('blocked', 'bloqueado')}</span>`);
     let verdict;
     if (S.adjM) verdict = `<span class="bad">${tr('Overadjustment', 'Sobrecontrol')}:</span> ${tr('conditioning on the mediator M blocks exactly the effect we want to measure.', 'condicionar en el mediador M bloquea justo el efecto que queremos medir.')}`;
     else if (S.doT) verdict = `<span class="ok">${tr('Graph surgery', 'Cirugía del grafo')}:</span> ${tr('arrows into T are deleted. No backdoor remains — this is what randomization does.', 'se borran las flechas hacia T. No queda ninguna puerta trasera; es lo que hace un experimento aleatorizado.')}`;
@@ -318,7 +322,7 @@ function dagScene(el) {
     status.innerHTML = `
       <div>${tr('Backdoor', 'Puerta trasera')} T ← X → Y: ${tag(bd1)}</div>
       <div>${tr('Backdoor', 'Puerta trasera')} T ← U → Y: ${tag(bd2)}</div>
-      <div>${tr('Causal path', 'Camino causal')} T → M → Y: ${causal ? opened() : blocked()}</div>
+      <div>${tr('Causal path', 'Camino causal')} T → M → Y: ${causalTag(causal)}</div>
       <div style="margin-top:6px">${verdict}</div>`;
   }
   ui.addEventListener('click', (ev) => {

@@ -41,7 +41,7 @@ execute:
 
 [Jhonier Rangel · Ravi Kalia, PhD · November 14, 2026]{.byline}
 
-[Interactive edition · <kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>M</kbd> menu · <kbd>S</kbd> notes · [Versión en español](index.html){.langlink}]{.hint}
+[Interactive edition · <kbd>→</kbd> next · <kbd>F</kbd> fullscreen · <kbd>M</kbd> menu · <kbd>S</kbd> notes · [Versión en español](index.html){.langlink lang="es"}]{.hint}
 :::
 
 ## Roadmap
@@ -59,7 +59,7 @@ execute:
 This edition includes **live simulations** (sliders), **rotatable 3D scenes**, and **code in R and Python**. Everything runs in your browser. The complete, verified script is [`code/inferencia_causal.R`](code/inferencia_causal.R); the original Spanish PDF is in [`original/`](original/Inferencia_causal_clasica_y_bayesiana.pdf).
 :::
 
-## Why should you care? {data-menu-title="Motivation"}
+## Why should you care? {.smaller data-menu-title="Motivation"}
 
 **Every method in this deck answers one deceptively simple question: "did the intervention actually change anything?"**
 
@@ -258,7 +258,7 @@ selRes = {
 }
 Plot.plot({
   width: 640, height: 210, marginLeft: 150,
-  marginBottom: 44, x: {domain: [-2, 3], label: "Valor", grid: true, labelAnchor: "center", labelOffset: 36},
+  marginBottom: 44, x: {domain: [-2, 3], label: "Value", grid: true, labelAnchor: "center", labelOffset: 36},
   y: {label: null, domain: selRes.map(d => d.termino)},
   marks: [
     Plot.barX(selRes, {y: "termino", x: "valor", fill: d => d.termino.startsWith("ATT") ? "#2e8b57" : d.termino.startsWith("Selection") ? "#c8742b" : "#14213d"}),
@@ -548,9 +548,9 @@ est = model.estimate_effect(estimand, method_name="frontdoor.two_stage_regressio
 
 Let $G_{\overline{X}}$ be the graph with arrows into $X$ removed and $G_{\underline{Z}}$ the graph with arrows out of $Z$ removed.
 
-1. **Insertion/deletion of observations**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}}}$, entonces $P(y \mid \operatorname{do}(x), z, w) = P(y \mid \operatorname{do}(x), w)$.
-2. **Action/observation**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\underline{Z}}}$, entonces $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), z, w)$.
-3. **Insertion/deletion of actions**: si $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\,\overline{Z(W)}}}$, entonces $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), w)$.
+1. **Insertion/deletion of observations**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}}}$, then $P(y \mid \operatorname{do}(x), z, w) = P(y \mid \operatorname{do}(x), w)$.
+2. **Action/observation**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\underline{Z}}}$, then $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), z, w)$.
+3. **Insertion/deletion of actions**: if $(Y \perp\!\!\!\perp Z \mid X, W)_{G_{\overline{X}\,\overline{Z(W)}}}$, then $P(y \mid \operatorname{do}(x), \operatorname{do}(z), w) = P(y \mid \operatorname{do}(x), w)$.
 
 ::: {.block .theorem data-title="Theorem 10 (Completeness, Shpitser–Pearl; Huang–Valtorta)"}
 A causal effect is identifiable from $P(v)$ and $G$ **if and only if** it can be derived using these three rules.
@@ -572,7 +572,7 @@ Counterfactuals are identifiable only with extra assumptions about $f$ (e.g. mon
 
 ## Regression and the Frisch–Waugh–Lovell theorem
 
-Modelo $Y = \alpha + \tau T + X^\top \beta + \varepsilon$.
+Model $Y = \alpha + \tau T + X^\top \beta + \varepsilon$.
 
 ::: {.block .theorem data-title="Theorem 11 (FWL)"}
 $\hat\tau$ equals the slope from regressing $\tilde Y = Y - \hat Y(X)$ on $\tilde T = T - \hat T(X)$.
@@ -883,7 +883,7 @@ Plot.plot({
 :::
 ::: {.column width="38%"}
 ```{ojs}
-html`<div class="readout">τ̂<sub>RD</sub> = <b>${rdFit.tau.toFixed(3)}</b> (verdad: 0.5)<br>
+html`<div class="readout">τ̂<sub>RD</sub> = <b>${rdFit.tau.toFixed(3)}</b> (truth: 0.5)<br>
 Observations used: ${rdFit.L.k + rdFit.R.k}<br><br>
 ${rdH > 0.6 ? "Large h: more data, but curvature biases the local fit." : rdH < 0.12 ? "Small h: little bias, but high variance." : "A reasonable bias–variance trade-off."}</div>`
 ```
@@ -1055,7 +1055,7 @@ fit <- brm(Y ~ T * (X1 + X2), data = d, family = gaussian(),
 mu1 <- posterior_epred(fit, newdata = transform(d, T = 1))   # S x n
 mu0 <- posterior_epred(fit, newdata = transform(d, T = 0))
 tau <- rowMeans(mu1 - mu0)                                   # draws from p(ATE | D)
-c(media = mean(tau), quantile(tau, c(.025, .975)), P_pos = mean(tau > 0))
+c(mean = mean(tau), quantile(tau, c(.025, .975)), P_pos = mean(tau > 0))
 ```
 
 ### Python · PyMC
@@ -1076,7 +1076,7 @@ ate = post["tau"].values + post["g"].values @ X.mean(axis=0)   # sample ATE (con
 print(ate.mean(), np.quantile(ate, [0.025, 0.975]), (ate > 0).mean())
 ```
 
-### R base (conjugado)
+### R base (conjugate)
 
 ```r
 X  <- model.matrix(~ T * (X1 + X2), d);  S0 <- diag(25, ncol(X))
@@ -1163,7 +1163,7 @@ summary(impact); plot(impact)
 library(posterior)
 summarise_draws(as_draws_df(fit), "rhat", "ess_bulk", "ess_tail")
 pp_check(fit, ndraws = 50)                           # posterior predictive check
-loo_compare(loo(fit), loo(fit_sin_interacciones))   # PSIS-LOO
+loo_compare(loo(fit), loo(fit_no_interactions))   # PSIS-LOO
 ```
 
 ## Decision-making with the causal posterior
@@ -1215,7 +1215,7 @@ html`<div class="readout">
   const post = dens(bpost.m, bpost.s);
   return Plot.plot({
     width: 760, height: 430, grid: true,
-    marginBottom: 44, x: {label: "τ", labelAnchor: "center", labelOffset: 36}, y: {label: "densidad"},
+    marginBottom: 44, x: {label: "τ", labelAnchor: "center", labelOffset: 36}, y: {label: "density"},
     color: {domain: ["Prior", "Likelihood", "Posterior"], range: ["#6f8fcf", "#9aa3b5", "#c8742b"], legend: true},
     marks: [
       Plot.rectX([{a: -bdelta, b: bdelta}], {x1: "a", x2: "b", fill: "#2e8b57", fillOpacity: 0.12}),
