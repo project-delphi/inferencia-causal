@@ -47,9 +47,8 @@ No prior causal inference is assumed. Slides marked **Going deeper · optional**
 
 The deck follows one dataset from start to finish: 700 kidney-stone patients treated with open surgery (A) or a keyhole
 procedure (B) ([Charig et al., 1986](https://doi.org/10.1136/bmj.292.6524.879)). Overall, B looks better (83% vs. 78% success).
-Yet A is better for small stones (under 2 cm) *and* for large stones (2 cm or more), because doctors gave A to the harder
-cases: large stones. The deck resolves the
-paradox several ways, and every method agrees:
+Yet A is better for small stones (under 2 cm) *and* for large stones (2 cm or more), because doctors gave A to the
+harder cases: large stones. The deck resolves the paradox several ways, and every method agrees:
 
 | Method | Effect of A vs. B |
 |:--|:--|

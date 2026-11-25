@@ -324,7 +324,7 @@ Imagine **we** give A to *every* patient. What fraction would succeed?
 
 $$\mathbb{P}(Y = 1 \mid \operatorname{do}(T = 1)) = \ ?$$
 
-Same 700 patients, same mix of cases: $P(x)$ and $P(y \mid t, x)$ stay as they were. Only the doctors' rule $P(t \mid x)$ is replaced by "everyone gets A".
+Same 700 patients, same mix of cases. Only the doctors' rule for choosing is replaced by "everyone gets A"; if stone size is all that drove their choice, $P(x)$ and $P(y \mid t, x)$ stay as they were.
 :::
 :::
 ::::
@@ -536,7 +536,7 @@ This example is due to Judea Pearl. Imagine the identical table, but the column 
 
 ## Recap: Foundations {.recap}
 
-- **Seeing** ($P(y \mid t)$) and **doing** ($P(y \mid \operatorname{do}(t))$) are different questions: doing replaces the doctors' rule $P(t \mid x)$ with our own choice.
+- **Seeing** ($P(y \mid t)$) and **doing** ($P(y \mid \operatorname{do}(t))$) are different questions: doing replaces how the doctors chose the treatment with our own choice.
 - Pearl's ladder: association → intervention → counterfactual. Each rung needs more than the data from the rung below.
 - **Simpson's paradox**: B looked 4.6 pp better overall only because A got the hard cases. Within each stone size, A wins.
 - **Standardization**, comparing within strata and averaging over the population, gives **+5.4 pp for A**. It is our first adjustment formula.
