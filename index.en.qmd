@@ -170,6 +170,8 @@ A real study of **700 patients** with kidney stones (Charig et al., 1986):
 | B (keyhole) | 289 / 350 | **82.6 %** |
 
 [Which treatment would you choose for your next patient?]{.big}
+
+The study also recorded each patient's **stone size**: small or large. The next slide explains why that matters.
 :::
 ::::
 
@@ -178,7 +180,49 @@ B looks better by 4.6 percentage points. Before this first section ends you will
 :::
 
 ::: {.notes}
-This example comes back in every section, so take a moment with it. Ask for a show of hands: who would choose B? Most will. Do not reveal anything yet. Stress the last bullet: doctors chose the treatment, so the two groups of patients may differ in ways that matter. Everything we do later (potential outcomes, graphs, propensity scores, Bayesian models) will be applied to these same 700 patients, so students can see each method give an answer to the same question.
+This example comes back in every section, so take a moment with it. Ask for a show of hands: who would choose B? Most will. Do not reveal anything yet. Stress the last bullet: doctors chose the treatment, so the two groups of patients may differ in ways that matter. Everything we do later (potential outcomes, graphs, propensity scores, Bayesian models) will be applied to these same 700 patients, so students can see each method give an answer to the same question. Stone size, mentioned under the table, is the one variable besides treatment and outcome that the study recorded; the next slide explains what it means and why it matters.
+:::
+
+## Small stones, large stones {data-menu-title="Stone size"}
+
+:::: {.columns}
+::: {.column width="44%"}
+A **kidney stone** is a hard lump of minerals that forms in the kidney. Before treatment, each stone was measured and put in one of two groups:
+
+```{=html}
+<svg viewBox="0 0 420 200" width="100%" height="210" style="font-family:'Source Sans 3',sans-serif;font-size:17px" role="img" aria-label="A small stone fits inside a 2 cm circle; a large stone spills out of it">
+  <g fill="#d9c7a7" stroke="#14213d" stroke-width="2">
+    <path d="M71 76 C71 61 83 55 94 57 C107 57 113 67 112 77 C113 89 101 96 90 95 C78 95 71 87 71 76 Z"/>
+    <path d="M238 74 C237 40 268 28 294 37 C320 18 364 34 365 66 C376 92 352 122 320 114 C298 128 259 122 250 103 C235 96 236 86 238 74 Z"/>
+  </g>
+  <g fill="none" stroke="#c8742b" stroke-width="2" stroke-dasharray="6 4">
+    <circle cx="92" cy="76" r="42"/><circle cx="302" cy="76" r="42"/>
+  </g>
+  <g fill="#14213d" text-anchor="middle">
+    <text x="92" y="150" font-weight="700">Small: under 2 cm</text><text x="92" y="172" fill="#5b6478">357 patients</text>
+    <text x="302" y="150" font-weight="700">Large: 2 cm or more</text><text x="302" y="172" fill="#5b6478">343 patients</text>
+  </g>
+  <text x="210" y="196" text-anchor="middle" fill="#c8742b" font-size="15">dashed circle = 2 cm across, same scale for both</text>
+</svg>
+```
+:::
+::: {.column width="56%"}
+::: {.block data-title="Size changes the outcome"}
+A large stone is harder to clear: there is more to remove, and pieces get left behind. **Both** treatments succeed less often on large stones.
+:::
+
+::: {.block .example data-title="Size changes the choice"}
+Open surgery is the bigger operation (large incision, longer recovery), so doctors kept it mostly for **large** stones and sent small ones to keyhole.
+:::
+:::
+::::
+
+::: {.block .alert data-title="Keep this in mind"}
+Stone size is settled **before** the doctor chooses, and it pushes on **both** the treatment and the outcome. If A got more of the hard cases, its overall success rate reflects its cases, not just how well it works.
+:::
+
+::: {.notes}
+Students rarely know anything about kidney stones, and they do not need much. Many stones pass on their own; these 700 patients needed theirs removed. Three facts carry the whole example. First, the study split patients at a stone diameter of 2 cm: 357 had small stones, 343 had large ones. The picture is to scale: the small stone fits inside the 2 cm circle, the large one spills out of it. Second, large stones are harder for any treatment, because there is more material to remove and pieces get left behind. Third, open surgery is the bigger operation, so doctors reserved it mostly for the large stones, and the newer keyhole procedure got mostly the easier, small ones. Put the second and third facts together and you have the whole puzzle: A was handed the hard cases. Ask the room to predict what that does to A's overall success rate; the Simpson's paradox slide puts numbers on it. A subtle point for later: "large" lumps together a 2.1 cm stone and a 5 cm one, so the two-group split is a coarse summary of size. Some differences in difficulty could remain inside each group, which is one reason the deck later asks how sensitive the answer is to things we did not measure.
 :::
 
 # Foundations {#foundations .section-title background-color="#14213d"}
@@ -190,7 +234,76 @@ This example comes back in every section, so take a moment with it. Ask for a sh
 ```
 
 ::: {.notes}
-This section is about stage 1: asking the right question. The main lesson is that "do patients who got A do better?" and "would patients do better if we gave them A?" are different questions, and that the data alone cannot tell you which one you have answered.
+This section is about stage 1: asking the right question. We start by writing the problem down as random variables, so every later question has a precise form. The main lesson is that "do patients who got A do better?" and "would patients do better if we gave them A?" are different questions, and that the data alone cannot tell you which one you have answered.
+:::
+
+## The problem as random variables {data-menu-title="Random variables"}
+
+Each patient $i$ gives us three random variables, listed in the order they happen:
+
+::: {.compact style="font-size: 1.12em"}
+| Variable | Values | When it is settled |
+|:--|:--|:--|
+| $X$ = stone size | small, large | **First**: the patient arrives with it |
+| $T$ = treatment | $1$ = A (open), $0$ = B (keyhole) | **Second**: the doctor chooses, having seen $X$ |
+| $Y$ = outcome | $1$ = success, $0$ = failure | **Last**: after the treatment |
+:::
+
+:::: {.columns}
+::: {.column width="42%"}
+**The data** are 700 rows, one per patient, such as $(X_1, T_1, Y_1) = (\text{large}, 1, 1)$.
+
+Each row is an independent draw from one joint distribution $P(X, T, Y)$.
+:::
+::: {.column width="58%"}
+::: {.block .example data-title="The running example, in symbols"}
+- $P(Y{=}1 \mid T{=}1) = 273/350 = 78.0\,\%$ (A's patients)
+- $P(Y{=}1 \mid T{=}0) = 289/350 = 82.6\,\%$ (B's patients)
+- $P(X{=}\text{large}) = 343/700 = 49\,\%$ (all patients)
+
+[We read each probability off as a proportion of the 700 patients; how precise these are is a Section 4 question.]{.small .muted}
+:::
+:::
+::::
+
+::: {.notes}
+This slide answers "what exactly is our data?" before we ask anything clever of it. There are only three variables, and their order in time matters: the stone comes first, the doctor's choice second, the outcome last. Coding T as 1 for A and 0 for B is a convention; nothing changes if you flip it, except the sign of the effects. The example row shows the shape of the data set (one row per patient); it is not a real patient record, since the study published only counts, but every combination of the three variables occurs in it. The "independent draws from one joint distribution" sentence is the standard statistical model: the patients are a sample, and P(X, T, Y) describes the population they come from. Every number students saw on the running-example slide is a probability about these three variables, as the box shows. For now we treat the sample proportions as if they were the probabilities; sampling uncertainty comes in Section 4, where we put confidence intervals on everything.
+:::
+
+## Each patient's story, as probabilities {data-menu-title="The story as probabilities"}
+
+The chain rule lets us write the joint distribution in the order things happen:
+
+$$
+P(x, t, y) \;=\; \underbrace{P(x)}_{\text{stone size}} \;\times\; \underbrace{\color{#d1495b}{P(t \mid x)}}_{\text{the doctor's choice}} \;\times\; \underbrace{P(y \mid t, x)}_{\text{the outcome}}
+$$
+
+:::: {.columns}
+::: {.column width="33%"}
+::: {.block data-title="P(x): who walks in"}
+51 % small stones, 49 % large.
+:::
+:::
+::: {.column width="34%"}
+::: {.block data-title="P(t | x): who gets what"}
+The doctors' rule: large stones went mostly to A.
+:::
+:::
+::: {.column width="33%"}
+::: {.block data-title="P(y | t, x): what happens"}
+Chance of success for each treatment and size.
+:::
+:::
+::::
+
+::: {.block .alert data-title="The question, stated precisely"}
+The overall rates $P(Y{=}1 \mid T{=}t)$ mix in the doctors' habits. Our question: what if **we** chose the treatment? Keep $P(x)$ and $P(y \mid t, x)$, replace $P(t \mid x)$ with "everyone gets A" (or B). The next slide gives this a symbol.
+:::
+
+[This assumes stone size is all that drove both the choice and the outcome; Section 2 names the assumption.]{.tiny .muted}
+
+::: {.notes}
+The chain rule of probability allows any ordering of the variables; we pick the order in which things actually happen, because then each factor has a physical meaning. Read the three boxes left to right as one patient's story: nature hands them a stone, the doctor picks a treatment after seeing it, and the treatment then succeeds or fails with a probability that depends on both. The middle factor, in red, is the troublemaker. It is the only part of the story that belongs to the doctors rather than to the disease or the treatment, and it is exactly what would change if we ran a different policy. The overall success rate of A mixes in the middle factor because it averages A's success over the patients doctors chose for A, who were mostly large stones. The causal question keeps the first and last factors and swaps out the middle one. That is all an intervention is, and the next slide introduces Pearl's notation for it, do(T = 1). Section 3 comes back to this exact factorization as graph surgery. Caveat for sharp students: the last factor measures how the treatment works only if nothing other than stone size influenced both the choice and the outcome. If doctors also looked at, say, the patient's frailty, then P(y | t, x) mixes the treatment with frailty too. That assumption gets its name, conditional ignorability, in Section 2.
 :::
 
 ## Seeing versus doing
@@ -211,7 +324,7 @@ Imagine **we** give A to *every* patient. What fraction would succeed?
 
 $$\mathbb{P}(Y = 1 \mid \operatorname{do}(T = 1)) = \ ?$$
 
-Same 700 patients, same mix of cases. The only thing that changes is the treatment.
+Same 700 patients, same mix of cases. Only the doctors' rule for choosing is replaced by "everyone gets A"; if stone size is all that drove their choice, $P(x)$ and $P(y \mid t, x)$ stay as they were.
 :::
 :::
 ::::
@@ -257,14 +370,15 @@ Rung 1 is ordinary statistics and machine learning: prediction from patterns. Ru
 
 ## Simpson's paradox: the full table {data-menu-title="Simpson's paradox"}
 
-|               | Small stones | Large stones | All patients |
+|               | Small stones (< 2 cm) | Large stones (≥ 2 cm) | All patients |
 |:--------------|:----------------------:|:----------------------:|:----------------------:|
 | A (open) | 81/87 = **93.1 %** | 192/263 = **73.0 %** | 273/350 = 78.0 % |
 | B (keyhole) | 234/270 = 86.7 % | 55/80 = 68.75 % | 289/350 = **82.6 %** |
 | **A − B** | **+6.4 pp** | **+4.3 pp** | −4.6 pp |
 
 - A wins for small stones **and** for large stones, yet B wins overall. This reversal is called **Simpson's paradox**.
-- **Why?** Large stones are harder to treat (about 70 % success versus about 90 %), and doctors gave the more invasive surgery, A, mostly to large stones: **75 %** of A's patients had large stones, versus **23 %** of B's.
+- **Why?** As we saw, large stones are harder to treat (about 70 % success versus about 90 %), and doctors gave the more invasive surgery, A, mostly to large stones: **75 %** of A's patients had large stones, versus **23 %** of B's.\
+  In symbols: $P(X{=}\text{large} \mid T{=}1) = 0.75$ but $P(X{=}\text{large} \mid T{=}0) = 0.23$.
 - So the overall comparison pits *A on mostly hard cases* against *B on mostly easy cases*. Stone size affects both the treatment choice and the outcome. A variable like that is called a **confounder**.
 
 ::: {.notes}
@@ -422,7 +536,7 @@ This example is due to Judea Pearl. Imagine the identical table, but the column 
 
 ## Recap: Foundations {.recap}
 
-- **Seeing** ($P(y \mid t)$) and **doing** ($P(y \mid \operatorname{do}(t))$) are different questions. Causal inference is about doing.
+- **Seeing** ($P(y \mid t)$) and **doing** ($P(y \mid \operatorname{do}(t))$) are different questions: doing replaces how the doctors chose the treatment with our own choice.
 - Pearl's ladder: association → intervention → counterfactual. Each rung needs more than the data from the rung below.
 - **Simpson's paradox**: B looked 4.6 pp better overall only because A got the hard cases. Within each stone size, A wins.
 - **Standardization**, comparing within strata and averaging over the population, gives **+5.4 pp for A**. It is our first adjustment formula.
@@ -3673,7 +3787,7 @@ Reference slide: regression discontinuity, synthetic control, and sensitivity an
 |:-------------|:--------------------------------------|:-----------------------------------|
 | $T$ | Treatment: $1$ = treated, $0$ = control | $T = 1$: open surgery (A); $T = 0$: keyhole (B) |
 | $Y$ | Outcome | $Y = 1$ if the treatment succeeded |
-| $X$ | Observed covariates, measured before treatment | Stone size: small or large |
+| $X$ | Observed covariates, measured before treatment | Stone size: small (under 2 cm) or large (2 cm or more) |
 | $U$ | An unobserved variable | Frailty the doctor saw but never recorded |
 | $Y(1),\ Y(0)$ | Potential outcomes: $Y$ *if* treated, *if* not (Pearl writes $y_t$ for $Y(t)$) | Success had the patient got A; had they got B |
 | $\tau$ | Causal effect $Y(1) - Y(0)$ (for patient $i$: $\tau_i$) | Did A make the difference for this patient? |

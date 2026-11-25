@@ -32,7 +32,7 @@ Every method in the deck answers that question. Each one is one stage of the sam
 
 | Section | What you learn |
 |:--|:--|
-| 1. Foundations | Seeing vs. doing, Pearl's ladder of causation, and Simpson's paradox on real data |
+| 1. Foundations | The problem as random variables, seeing vs. doing, Pearl's ladder of causation, and Simpson's paradox on real data |
 | 2. Potential outcomes | Causal effects as comparisons of two worlds, ATE/ATT/CATE, selection bias, why randomization works, ignorability and positivity |
 | 3. Causal graphs | DAGs and structural models, `do(·)` as graph surgery, chains/forks/colliders, d-separation, the backdoor and frontdoor criteria |
 | 4. Classical estimation | Regression and g-computation, propensity scores, IPW, matching, doubly robust AIPW, double/debiased ML, confidence intervals |
@@ -47,8 +47,8 @@ No prior causal inference is assumed. Slides marked **Going deeper · optional**
 
 The deck follows one dataset from start to finish: 700 kidney-stone patients treated with open surgery (A) or a keyhole
 procedure (B) ([Charig et al., 1986](https://doi.org/10.1136/bmj.292.6524.879)). Overall, B looks better (83% vs. 78% success).
-Yet A is better for small stones *and* for large stones, because doctors gave A to the harder cases. The deck resolves the
-paradox several ways, and every method agrees:
+Yet A is better for small stones (under 2 cm) *and* for large stones (2 cm or more), because doctors gave A to the
+harder cases: large stones. The deck resolves the paradox several ways, and every method agrees:
 
 | Method | Effect of A vs. B |
 |:--|:--|
