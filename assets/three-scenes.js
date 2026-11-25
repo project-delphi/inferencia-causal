@@ -118,6 +118,7 @@ function hint(el, text) {
 }
 
 // ---------- Scene 1: cover causal network ----------
+// A web of associations (blue) with one highlighted causal path T → … → Y.
 function heroScene(el) {
   const renderer = makeRenderer(el);
   const scene = new THREE.Scene();
@@ -127,7 +128,8 @@ function heroScene(el) {
 
   const rng = mulberry32(7);
   const group = new THREE.Group();
-  group.position.x = 3.2;
+  group.position.x = 6.3; // keep the network to the right of the title text
+  group.scale.setScalar(0.84);
   scene.add(group);
 
   const N = 70;
@@ -139,13 +141,6 @@ function heroScene(el) {
     const th = 2 * Math.PI * rng();
     pts.push(new THREE.Vector3(x, r * Math.cos(th), r * Math.sin(th)));
   }
-  const nodeGeo = new THREE.SphereGeometry(0.11, 16, 16);
-  pts.forEach((p, i) => {
-    const col = i % 5 === 0 ? C.orange : C.blue;
-    const m = new THREE.Mesh(nodeGeo, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.8 }));
-    m.position.copy(p);
-    group.add(m);
-  });
 
   // edges: each node points to 2 nearby later nodes (acyclicity)
   const edges = [];
@@ -155,24 +150,96 @@ function heroScene(el) {
     cand.sort((a, b) => a[0] - b[0]);
     cand.slice(0, 2).forEach(([, j]) => edges.push([i, j]));
   }
+
+  // highlighted causal path: shortest directed path (BFS) from an early node T to a late node Y
+  const out = Array.from({ length: N }, () => []);
+  edges.forEach(([i, j]) => out[i].push(j));
+  function bfs(s) {
+    const prev = new Array(N).fill(-1), seen = new Array(N).fill(false), q = [s];
+    seen[s] = true;
+    while (q.length) { const u = q.shift(); for (const v of out[u]) if (!seen[v]) { seen[v] = true; prev[v] = u; q.push(v); } }
+    return prev;
+  }
+  let path = [];
+  for (let s = 6; s < 24 && !path.length; s++) {
+    const prev = bfs(s);
+    let best = null;
+    for (let t = N - 1; t >= Math.floor(0.8 * N); t--) {
+      if (prev[t] < 0) continue;
+      const p = [t]; while (p[0] !== s) p.unshift(prev[p[0]]);
+      if (p.length >= 4 && p.length <= 9 && (!best || p.length < best.length)) best = p;
+    }
+    if (best) path = best;
+  }
+  const onPath = new Set(path);
+  const T = path[0], Y = path[path.length - 1];
+
+  const nodeGeo = new THREE.SphereGeometry(0.11, 16, 16);
+  pts.forEach((p, i) => {
+    if (onPath.has(i) && (i === T || i === Y)) return; // drawn larger below
+    const col = onPath.has(i) ? 0xffc48a : C.blue;
+    const m = new THREE.Mesh(nodeGeo, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.8 }));
+    m.position.copy(p);
+    group.add(m);
+  });
+
   const pos = new Float32Array(edges.length * 6);
   edges.forEach(([i, j], k) => {
     pos.set([pts[i].x, pts[i].y, pts[i].z, pts[j].x, pts[j].y, pts[j].z], k * 6);
   });
   const lg = new THREE.BufferGeometry();
   lg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x8fb4ff, transparent: true, opacity: 0.28 })));
+  group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x8fb4ff, transparent: true, opacity: 0.22 })));
 
-  // pulses traveling along edges: "causal flow"
-  const P = 60;
-  const pulseGeo = new THREE.SphereGeometry(0.06, 10, 10);
-  const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffd2a0 });
+  if (path.length) {
+    // thin glowing arrows along the path
+    const pathMat = new THREE.MeshStandardMaterial({ color: C.orange, emissive: C.orange, emissiveIntensity: 0.6 });
+    for (let k = 0; k + 1 < path.length; k++) {
+      const a = pts[path[k]], b = pts[path[k + 1]];
+      const dir = new THREE.Vector3().subVectors(b, a).normalize();
+      const start = a.clone().addScaledVector(dir, k === 0 ? 0.3 : 0.12);
+      const end = b.clone().addScaledVector(dir, k + 2 === path.length ? -0.3 : -0.12);
+      const L = start.distanceTo(end);
+      if (L < 0.15) continue;
+      const headL = Math.min(0.24, 0.4 * L);
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, L - headL, 10), pathMat);
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.1, headL, 14), pathMat);
+      shaft.position.y = (L - headL) / 2;
+      head.position.y = L - headL / 2;
+      const g = new THREE.Group();
+      g.add(shaft, head);
+      g.position.copy(start);
+      g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      group.add(g);
+    }
+    // T (treatment) and Y (outcome) as larger labeled nodes
+    const big = new THREE.SphereGeometry(0.27, 24, 24);
+    [[T, C.orange, '#ffb26b', 'T'], [Y, C.green, '#9be7a6', 'Y']].forEach(([i, col, css, txt]) => {
+      const m = new THREE.Mesh(big, new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.55 }));
+      m.position.copy(pts[i]);
+      group.add(m);
+      const l = label(txt, { color: css, size: 0.62 });
+      l.position.copy(pts[i]).add(new THREE.Vector3(0, 0.62, 0));
+      group.add(l);
+    });
+  }
+
+  // faint pulses wander the whole web ("associations")...
+  const P = 50;
+  const pulseGeo = new THREE.SphereGeometry(0.05, 10, 10);
+  const pulseMat = new THREE.MeshBasicMaterial({ color: 0xbcd3ff, transparent: true, opacity: 0.75 });
   const pulses = [];
   for (let k = 0; k < P; k++) {
     const m = new THREE.Mesh(pulseGeo, pulseMat);
     group.add(m);
     pulses.push({ m, e: edges[Math.floor(rng() * edges.length)], t: rng(), v: 0.25 + rng() * 0.4 });
   }
+  // ...while bright pulses travel the causal path from T to Y
+  const flowGeo = new THREE.SphereGeometry(0.085, 12, 12);
+  const flowMat = new THREE.MeshBasicMaterial({ color: 0xffe2bf });
+  const flows = path.length > 1
+    ? Array.from({ length: 4 }, (_, k) => { const m = new THREE.Mesh(flowGeo, flowMat); group.add(m); return { m, u: (k * (path.length - 1)) / 4 }; })
+    : [];
 
   let mx = 0, my = 0;
   el.addEventListener('pointermove', (ev) => {
@@ -198,6 +265,12 @@ function heroScene(el) {
           p.t = 0;
         }
         p.m.position.lerpVectors(pts[p.e[0]], pts[p.e[1]], p.t);
+      }
+      const segs = path.length - 1;
+      for (const f of flows) {
+        f.u = (f.u + dt * 0.55) % segs;
+        const k = Math.floor(f.u);
+        f.m.position.lerpVectors(pts[path[k]], pts[path[k + 1]], f.u - k);
       }
     },
   };
@@ -594,12 +667,12 @@ function bayesScene(el) {
     const verdict = !hasOlsSignal
       ? tr('The data carry little signal about the effect, so the posterior mostly reflects the prior.', 'Los datos aportan poca señal sobre el efecto, así que la posterior refleja sobre todo el prior.')
       : shrink > 0.25
-        ? tr('Strong prior or little data: the posterior stays near μ₀.', 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.')
+        ? tr('Strong prior or little data: the posterior stays near the prior mean b₀.', 'Prior fuerte o pocos datos: la posterior se queda cerca de μ₀.')
         : tr('Data dominate: the posterior moves toward OLS and tightens.', 'Los datos dominan: la posterior se acerca a MCO y se concentra.');
     status.innerHTML = `
-      <div>β | D ~ N(m, S), σ² = 1, μ₀ = 0, Σ₀ = ${s0.toFixed(2)}² I</div>
+      <div>β | D ~ N(m, S), σ² = 1, ${tr('b₀', 'μ₀')} = 0, Σ₀ = ${s0.toFixed(2)}² I</div>
       <div>τ̂<sub>${tr('OLS', 'MCO')}</sub> = <b>${ols[1].toFixed(2)}</b> · E(τ | D) = <b>${m[1].toFixed(2)}</b> · sd(τ | D) = <b>${sdTau.toFixed(2)}</b></div>
-      <div>${tr('Shrinkage toward', 'Contracción hacia')} μ₀: <b>${hasOlsSignal ? (100 * shrink).toFixed(0) + '%' : 'n/a'}</b></div>
+      <div>${tr('Shrinkage toward', 'Contracción hacia')} ${tr('b₀', 'μ₀')}: <b>${hasOlsSignal ? (100 * shrink).toFixed(0) + '%' : 'n/a'}</b></div>
       <div style="margin-top:6px">${verdict}</div>`;
   }
   ui.addEventListener('input', update);

@@ -78,17 +78,28 @@ $presentation-h2-font-size: 1.45em;
 #hero .three-bg {
   position: absolute; inset: -40px -60px; z-index: 0;
 }
+/* scrim: keeps the text column legible over the animated network */
+#hero .three-bg::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(13, 23, 48, 0.94) 0%, rgba(13, 23, 48, 0.8) 34%, rgba(13, 23, 48, 0) 58%);
+}
 #hero .hero-text {
   position: relative; z-index: 1;
-  margin-top: 170px;
+  margin-top: 124px;
+  max-width: 700px;
   pointer-events: none;
 }
-#hero .hero-title { display: block; color: #fff; font-size: 2.1em; font-weight: 600; line-height: 1.1; text-shadow: 0 2px 12px rgba(0,0,0,0.5); }
-#hero .subtitle { display: block; color: #f3c99b; font-size: 1.0em; margin-top: 0.3em; }
-#hero .byline, #hero .hint { display: block; }
 #hero p { margin: 0; }
-#hero .byline { color: #d7deea; margin-top: 1.6em; font-size: 0.85em; }
-#hero .hint { color: #9fb0cc; font-size: 0.55em; margin-top: 2.5em; }
+#hero .eyebrow, #hero .hero-title, #hero .lead, #hero .topics, #hero .byline, #hero .hint { display: block; }
+#hero .eyebrow { color: #f3c99b; font-size: 0.48em; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+#hero .hero-title { color: #fff; font-size: 2.05em; font-weight: 600; line-height: 1.05; margin-top: 0.3em; text-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+#hero .lead { color: #dfe6f2; font-size: 0.74em; line-height: 1.42; margin-top: 0.8em; }
+#hero .lead em { color: #f3c99b; font-style: normal; }
+#hero .topics { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 1.25em; font-size: 0.46em; }
+#hero .topics span { color: #f3c99b; border: 1px solid rgba(243, 201, 155, 0.45); border-radius: 999px; padding: 0.18em 0.85em; }
+#hero .byline { color: #d7deea; margin-top: 1.5em; font-size: 0.72em; }
+#hero .hint { color: #9fb0cc; font-size: 0.5em; margin-top: 1.1em; }
+#hero .subtitle { display: block; color: #f3c99b; font-size: 0.85em; margin-top: 0.35em; }
 
 /* three.js containers */
 .three-stage {
@@ -176,3 +187,73 @@ $presentation-h2-font-size: 1.45em;
   padding: 2em; text-align: center; color: #e9eef8; font-size: 0.6em;
 }
 #hero .three-error { align-items: flex-end; justify-content: flex-end; padding: 0 70px 60px; font-size: 0.45em; color: #8ea0c4; }
+
+/* ---------- teaching components (used by the English edition) ---------- */
+
+/* Extra block flavours: ::: {.block .intuition data-title="In plain words"} */
+.reveal .block.intuition { background: #eaf4ee; }
+.reveal .block.intuition::before { background: #2e6b4f; }
+.reveal .block.example { background: #e9f1f9; }
+.reveal .block.example::before { background: #1f5f8b; }
+
+/* "Going deeper" badge on optional slides: ## Title {.deeper} */
+.reveal .slides section.deeper > h2::after {
+  content: "Going deeper · optional";
+  display: inline-block;
+  margin-left: 0.7em;
+  padding: 0.18em 0.75em;
+  vertical-align: middle;
+  font-size: 0.34em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $navy-2;
+  background: #e7ecf5;
+  border: 1px solid #c4cee0;
+  border-radius: 999px;
+}
+
+/* Big one-line takeaway */
+.reveal .big { font-size: 1.2em; font-weight: 600; color: $navy; line-height: 1.3; }
+.reveal .center { text-align: center; }
+
+/* Pipeline: Question → Estimand → Identification → Estimation → Uncertainty */
+.reveal .pipeline {
+  display: flex; gap: 0.75em; align-items: stretch;
+  margin: 0.5em 0; font-size: 0.6em; line-height: 1.3;
+}
+.reveal .pipeline > div {
+  flex: 1; position: relative;
+  background: #eef1f7; color: $ink;
+  border-radius: 6px; padding: 0.45em 0.6em;
+}
+.reveal .pipeline > div b { display: block; color: $navy; margin-bottom: 0.15em; }
+.reveal .pipeline > div.on { background: $navy; color: #e9eef8; }
+.reveal .pipeline > div.on b { color: #f3c99b; }
+.reveal .pipeline > div:not(:last-child)::after {
+  content: "→"; position: absolute; right: -0.68em; top: 50%;
+  transform: translateY(-50%); color: $accent; font-weight: 700;
+}
+.reveal section.section-title .pipeline { margin-top: 1.6em; font-size: 0.5em; }
+.reveal section.section-title .pipeline > div { background: rgba(255, 255, 255, 0.07); color: #9fb0cc; }
+.reveal section.section-title .pipeline > div b { color: #cfd8ea; }
+.reveal section.section-title .pipeline > div.on { background: $accent; color: #fff; }
+.reveal section.section-title .pipeline > div.on b { color: #fff; }
+
+/* Quiz feedback (see the `quiz` helper in the deck's helper cell) */
+.reveal .readout.quiz { font-size: 0.62em; margin-top: 0.4em; }
+.reveal .readout.quiz.good { border-left-color: #2e8b57; background: #eaf4ee; }
+.reveal .readout.quiz.bad { border-left-color: #d1495b; background: #fbeef0; }
+.reveal .smaller .readout.quiz { font-size: 0.85em; }
+
+/* Section recap slides: ## Recap: ... {.recap} */
+.reveal .slides section.recap ul { list-style: none; padding-left: 0; }
+.reveal .slides section.recap ul li { position: relative; padding-left: 1.4em; margin-bottom: 0.45em; }
+.reveal .slides section.recap ul li::before {
+  content: "✓"; position: absolute; left: 0; color: #2e8b57; font-weight: 700;
+}
+
+/* Compact tables for worked examples */
+.reveal table.compact, .reveal .compact table { font-size: 0.62em; }
+.reveal .compact table td, .reveal .compact table th { padding: 0.18em 0.55em; }
+.reveal .q { color: #d1495b; font-weight: 700; }
