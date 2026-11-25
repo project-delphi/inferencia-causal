@@ -19,7 +19,7 @@ format:
     code-line-numbers: false
     highlight-style: github
     html-math-method: mathjax
-    footer: "Jhonier Rangel y Ravi Kalia, PhD · Inferencia causal clásica y bayesiana"
+    footer: "Jhonier Rangel y Ravi Kalia, PhD · Inferencia causal clásica y bayesiana · [GitHub](https://github.com/project-delphi/inferencia-causal){.github-link target=\"_blank\" rel=\"noopener\"}"
     menu:
       side: left
       numbers: true
